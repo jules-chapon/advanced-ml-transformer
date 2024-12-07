@@ -1,0 +1,60 @@
+[tool.poetry]
+name = "name"
+version = "1.0.0"
+description = "description"
+authors = ["Jules Chapon <jules.b.chapon@gmail.com>"]
+readme = "README.md"
+package-mode = true
+
+[tool.poetry.dependencies]
+
+# Mandatory
+kaggle = "^1.6.17"
+poetry = "^1.7.1"
+python = "^3.10"
+uv = "^0.4.29"
+
+# Formatting and good practices
+black = "^24.7.0"
+mypy = "^1.11.2"
+pre-commit = "^3.8.0"
+pylint = "^3.2.7"
+ruff = "^0.6.3"
+
+# Jupyter
+ipykernel = "^6.29.5"
+ipywidgets = "^8.1.5"
+tqdm = "^4.66.5"
+
+# Visualization
+matplotlib = "^3.9.2"
+#plotly = "^5.24.1"
+seaborn = "^0.13.2"
+
+# Data science
+datasets = "^3.1.0"
+numpy = "^2.1.0"
+pandas = "^2.2.2"
+pulp = "^2.9.0"
+scipy = "^1.14.1"
+
+# Time series
+#dtw = "^1.4.0"
+#statsmodels = "^0.14.4"
+
+# Machine learning
+#boruta = "^0.4.3"
+#imblearn = "^0.0"
+#lightgbm = "^3.3.5"
+optuna = "^4.0.0"
+scikit-learn = "^1.5.1"
+
+# Deep learning
+torch = "^2.3.1"
+#torchaudio = "^2.3.1"
+#torchvision = "^0.18.1"
+#transformers = "^4.45.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
