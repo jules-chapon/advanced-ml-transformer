@@ -24,6 +24,8 @@ COLS_ID = "cols_id"
 
 ### PARAMS
 
+DEFAULT_UNKNOWN_TOKEN = "default_unknown_token"
+DEFAULT_UNKNOWN_EMBEDDING = "default_unknown_embedding"
 TRAIN_RATIO = "train_ratio"
 FEATURE_SELECTION = "feature_selection"
 TRAINING_PARAMS = "training_params"
