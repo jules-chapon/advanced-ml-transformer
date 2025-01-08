@@ -1,6 +1,7 @@
 *.csv
 *.npy
 *.pkl
+*__nb*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
