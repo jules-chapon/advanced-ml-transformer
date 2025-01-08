@@ -1,7 +1,5 @@
 """Constants"""
 
-from src.configs import names
-
 ###############################################################
 #                                                             #
 #                             PATHS                           #

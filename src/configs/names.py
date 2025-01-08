@@ -17,6 +17,8 @@ TRANSFORMER = "transformer"
 
 SRC_LANGUAGE = "src_language"
 TGT_LANGUAGE = "tgt_language"
+SRC_VOCAB_SIZE = "src_vocab_size"
+TGT_VOCAB_SIZE = "tgt_vocab_size"
 
 # TRANSFORMER ARCHITECTURE
 
