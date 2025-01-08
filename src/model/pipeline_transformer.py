@@ -48,6 +48,7 @@ class TransformerPipeline(Pipeline):
             os.path.join(constants.OUTPUT_FOLDER, self.folder_name, "test"),
             exist_ok=True,
         )
+        print("Pipeline initialized successfully")
 
     def full_pipeline(
         self: _TransformerPipeline,
@@ -79,6 +80,7 @@ class TransformerPipeline(Pipeline):
             translations_tgt=translations_tgt,
             translations_predictions=translations_predictions,
         )
+        print("Full pipeline ran successfully")
 
     def learning_pipeline(
         self: _TransformerPipeline,
@@ -100,6 +102,8 @@ class TransformerPipeline(Pipeline):
         self: _TransformerPipeline,
     ) -> None:
         self.model = Transformer(params=self.params)
+        self.model.to(self.params[names.DEVICE])
+        print("Model loaded successfully")
 
     def preprocess_data(
         self: _TransformerPipeline,
@@ -140,6 +144,7 @@ class TransformerPipeline(Pipeline):
         self.tgt_vocab = tgt_vocab
         self.params[names.SRC_VOCAB_SIZE] = len(src_vocab)
         self.params[names.TGT_VOCAB_SIZE] = len(tgt_vocab)
+        print("Dataloaders loaded successfully")
         return train_dataloader, valid_dataloader, test_dataloader
 
     def save(self):
@@ -153,6 +158,7 @@ class TransformerPipeline(Pipeline):
         self_to_cpu = move_to_cpu(self)
         with open(path, "wb") as file:
             pkl.dump(self_to_cpu, file)
+        print("Model saved successfully")
 
     def save_losses(self, train_loss: list[float], valid_loss: list[float]) -> None:
         train_loss = move_to_cpu(train_loss)
@@ -169,6 +175,7 @@ class TransformerPipeline(Pipeline):
             ),
             valid_loss,
         )
+        print("Losses saved successfully")
 
     def save_translations(
         self,
@@ -176,7 +183,6 @@ class TransformerPipeline(Pipeline):
         translations_tgt: list[str],
         translations_predictions: list[str],
     ) -> None:
-        """save loss"""
         translations_src = move_to_cpu(translations_src)
         translations_tgt = move_to_cpu(translations_tgt)
         translations_predictions = move_to_cpu(translations_predictions)
@@ -207,6 +213,7 @@ class TransformerPipeline(Pipeline):
             ),
             translations_predictions,
         )
+        print("Translations saved successfully")
 
     @classmethod
     def load(cls, id_experiment: int | None = None) -> _TransformerPipeline:
@@ -223,6 +230,7 @@ class TransformerPipeline(Pipeline):
         else:
             pipeline.device = "cpu"
         pipeline.model = pipeline.model.to(pipeline.device)
+        print("Pipeline loaded successfully")
         return pipeline
 
 

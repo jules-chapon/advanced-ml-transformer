@@ -250,7 +250,7 @@ class Transformer(torch.nn.Module):
                 print(f"Epoch {epoch+1} / {self.params[names.NB_EPOCHS]} -------------")
                 print(f"Train loss : {train_loss:.4f}. Valid loss : {valid_loss:.4f}.")
         print(
-            f"training is over. It took {time.time() - start_training:.2f} seconds. \n"
+            f"Trained successfully. It took {time.time() - start_training:.2f} seconds. \n"
         )
         return train_loss_history, valid_loss_history
 
@@ -260,6 +260,7 @@ class Transformer(torch.nn.Module):
         src_vocab: dict[str, int],
         tgt_vocab: dict[str, int],
     ) -> tuple[dict[str, float], list[str], list[str], list[str]]:
+        start_time = time.time()
         translations_src = []
         translations_tgt = []
         translations_predictions = []
@@ -307,6 +308,9 @@ class Transformer(torch.nn.Module):
             reference_sentences=translations_tgt,
         )
         metrics = {"rouge_1": rouge_1, "rouge_l": rouge_l}
+        print(
+            f"Evaluated successfully. It took {(time.time() - start_time):.2f} seconds"
+        )
         return metrics, translations_src, translations_tgt, translations_predictions
 
     def decode(

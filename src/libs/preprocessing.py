@@ -1,5 +1,6 @@
 """Functions for preprocessing"""
 
+import time
 from datasets import load_dataset
 import pandas as pd
 
@@ -10,25 +11,32 @@ from src.configs import constants, names
 
 
 def load_data_from_hf(small: bool = True) -> pd.DataFrame:
+    start_time = time.time()
     if small:
         folder = constants.HF_SMALL_FILENAME
     else:
         folder = constants.HF_LARGE_FILENAME
     df = load_dataset(folder)["train"].to_pandas()
+    print(f"Data loading done in {time.time() - start_time:.2f} seconds")
     return df
 
 
 def load_data_from_local(small: bool = True) -> pd.DataFrame:
+    start_time = time.time()
     if small:
-        return pd.read_csv(constants.DATA_SMALL_FILENAME, index_col=False)
+        df = pd.read_csv(constants.DATA_SMALL_FILENAME, index_col=False)
     else:
-        return pd.read_csv(constants.DATA_LARGE_FILENAME, index_col=False)
+        df = pd.read_csv(constants.DATA_LARGE_FILENAME, index_col=False)
+    print(f"Data loading done in {time.time() - start_time:.2f} seconds")
+    return df
 
 
 def load_data(local: bool = True, small: bool = True) -> pd.DataFrame:
     if local:
+        print("Loading data from local")
         return load_data_from_local(small=small)
     else:
+        print("Loading data from Hugging Face")
         return load_data_from_hf(small=small)
 
 
@@ -44,13 +52,17 @@ def get_train_valid_test_sets(
     df_train = df[:nb_train]
     df_valid = df[nb_train : nb_train + nb_val]
     df_test = df[nb_train + nb_val :]
+    print("Train valid and test sets are ready")
     return df_train, df_valid, df_test
 
 
 def from_text_to_tokens(
     sentence: str, params: dict[str, Any] | None = None
 ) -> list[str]:
-    tokens = sentence.split()
+    if isinstance(sentence, str):
+        tokens = sentence.split()
+    else:
+        tokens = [" "]
     return tokens
 
 
@@ -135,9 +147,8 @@ def tokenize_dataframe(
     tgt_output_tokens: list[int],
     params: dict[str, Any] | None = None,
 ) -> tuple[dict[str, int], dict[str, int], list[list[int]], list[list[int]]]:
-    for src_sent, tgt_sent in tqdm(
-        zip(df[params[names.SRC_LANGUAGE]], df[params[names.TGT_LANGUAGE]]),
-        total=len(df),
+    for src_sent, tgt_sent in zip(
+        df[params[names.SRC_LANGUAGE]], df[params[names.TGT_LANGUAGE]]
     ):
         src_input = tokenize_sentence_src(
             sentence=src_sent, vocab=src_vocab, params=params
@@ -204,6 +215,7 @@ def tokenize_datasets(
         tgt_output_tokens=[],
         params=params,
     )
+    print("Datasets have been tokenized")
     return (
         src_vocab,
         tgt_vocab,

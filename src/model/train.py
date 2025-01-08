@@ -61,13 +61,15 @@ def train_main(argv):
     args = parser.parse_args(argv)
     # Load data
     df = load_data(local=args.local_data, small=False)
+    print("Data loaded successfully")
     df_train, df_valid, df_test = get_train_valid_test_sets(df=df)
     for exp in args.exp:
+        print(f"Experiment {exp}")
         if args.load:
             pipeline = load_pipeline_from_config(exp)
         else:
             pipeline = init_pipeline_from_config(exp)
-        print(f"Experiment {exp}")
+        print("Pipeline loaded successfully")
         if args.full:
             pipeline.full_pipeline(
                 df_train=df_train, df_valid=df_valid, df_test=df_test
