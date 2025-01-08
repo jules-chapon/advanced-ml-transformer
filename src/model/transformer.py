@@ -7,7 +7,6 @@ import torch
 import torch.nn.functional as F
 import typing
 from torch.utils.data import DataLoader
-from tqdm import tqdm
 from typing import Any
 
 from src.configs import ml_config, names, constants
@@ -198,14 +197,17 @@ class Transformer(torch.nn.Module):
         valid_dataloader: DataLoader,
     ) -> None:
         optimizer = torch.optim.Adam(
-            self.parameters(), lr=1e-4, betas=(0.9, 0.98), eps=1e-9
+            self.parameters(),
+            lr=self.params[names.LEARNING_RATE],
+            betas=self.params[names.BETAS],
+            eps=self.params[names.EPSILON],
         )
         criterion = torch.nn.CrossEntropyLoss(ignore_index=0)
         self.to(self.params[names.DEVICE])
         train_loss_history = []
         valid_loss_history = []
         start_training = time.time()
-        for epoch in tqdm(range(self.params[names.NB_EPOCHS])):
+        for epoch in range(self.params[names.NB_EPOCHS]):
             # Training
             self.train()
             train_loss = 0.0
@@ -218,9 +220,10 @@ class Transformer(torch.nn.Module):
                 optimizer.zero_grad()
                 logits = self(src_input, tgt_input)
                 B, T, _ = logits.shape
-                logits = logits.view(B * T, self.params[names.TGT_VOCAB_SIZE])
-                tgt_output = tgt_output.view(B * T)
-                loss = criterion(logits, tgt_output)
+                loss = criterion(
+                    logits.view(B * T, self.params[names.TGT_VOCAB_SIZE]),
+                    tgt_output.view(B * T),
+                )
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1)
                 optimizer.step()
@@ -229,7 +232,7 @@ class Transformer(torch.nn.Module):
             self.eval()
             valid_loss = 0.0
             with torch.no_grad():
-                for src_input, tgt_input, tgt_output in train_dataloader:
+                for src_input, tgt_input, tgt_output in valid_dataloader:
                     src_input, tgt_input, tgt_output = (
                         src_input.to(self.params[names.DEVICE]),
                         tgt_input.to(self.params[names.DEVICE]),
@@ -237,9 +240,10 @@ class Transformer(torch.nn.Module):
                     )
                     logits = self(src_input, tgt_input)
                     B, T, _ = logits.shape
-                    logits = logits.view(B * T, self.params[names.TGT_VOCAB_SIZE])
-                    tgt_output = tgt_output.view(B * T)
-                    loss = criterion(logits, tgt_output)
+                    loss = criterion(
+                        logits.view(B * T, self.params[names.TGT_VOCAB_SIZE]),
+                        tgt_output.view(B * T),
+                    )
                     valid_loss += loss.item()
             ###
             train_loss /= len(train_dataloader)

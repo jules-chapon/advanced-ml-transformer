@@ -48,5 +48,8 @@ class TranslationDataset(Dataset):
         self: _TranslationDataset, params: dict[str, Any], shuffle: bool = False
     ) -> None:
         return DataLoader(
-            dataset=self, batch_size=params[names.BATCH_SIZE], shuffle=shuffle
+            dataset=self,
+            batch_size=params[names.BATCH_SIZE],
+            shuffle=shuffle,
+            num_workers=params[names.NUM_WORKERS],
         )

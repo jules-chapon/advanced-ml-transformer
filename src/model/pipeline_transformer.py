@@ -249,7 +249,8 @@ def move_to_cpu(obj):
 
 if __name__ == "__main__":
     df = load_data_from_local()
+    print(len(df))
     df_train, df_valid, df_test = get_train_valid_test_sets(df)
-    id_experiment = 10
+    id_experiment = 0
     pipeline = TransformerPipeline(id_experiment=id_experiment)
     pipeline.full_pipeline(df_train=df_train, df_valid=df_valid, df_test=df_test)
