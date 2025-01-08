@@ -4,7 +4,6 @@ import time
 from datasets import load_dataset
 import pandas as pd
 
-from tqdm import tqdm
 from typing import Any
 
 from src.configs import constants, names
@@ -43,12 +42,17 @@ def load_data(local: bool = True, small: bool = True) -> pd.DataFrame:
 def get_train_valid_test_sets(
     df: pd.DataFrame,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    if len(df) > constants.MAX_LEN_DF:
+        df = df.sample(
+            n=constants.MAX_LEN_DF, random_state=constants.RANDOM_SEED
+        ).reset_index(drop=True)
+    else:
+        df = df.sample(frac=1, random_state=constants.RANDOM_SEED).reset_index(
+            drop=True
+        )
     nb_sentences = len(df)
     nb_train = int(constants.TRAIN_RATIO * nb_sentences)
     nb_val = int(constants.VALID_RATIO * nb_sentences)
-    df = df.sample(frac=1, random_state=constants.RANDOM_SEED).reset_index(
-        drop=True
-    )  # Shuffle dataset
     df_train = df[:nb_train]
     df_valid = df[nb_train : nb_train + nb_val]
     df_test = df[nb_train + nb_val :]
