@@ -8,7 +8,6 @@ import shutil
 import sys
 import subprocess
 from remote_training.__kaggle_login import kaggle_users
-from remote_training import config
 from src.configs import constants
 from src.model.train import get_parser
 from typing import Optional
@@ -54,7 +53,7 @@ def init_parser(
         "--notebook_id",
         type=str,
         help="Notebook name in kaggle",
-        default=config.NOTEBOOK_ID,
+        default=constants.NOTEBOOK_ID,
     )
     # User flag
     parser.add_argument(
@@ -81,8 +80,10 @@ def prepare_notebook(
     branch: str,
     git_user: str = None,
     git_repo: str = None,
+    load: str = "false",
+    pipeline: str = "full",
     template_nb_path: str = os.path.join(
-        config.REMOTE_TRAINING_FOLDER, "remote_training.ipynb"
+        constants.REMOTE_TRAINING_FOLDER, "remote_training.ipynb"
     ),
     output_dir: str = constants.OUTPUT_FOLDER,
     dataset_files: Optional[list] = None,
@@ -96,8 +97,10 @@ def prepare_notebook(
         branch (str): Git branch.
         git_user (str, optional): Git username. Defaults to None.
         git_repo (str, optional): Git repository. Defaults to None.
+        load (str, optional): Load pretrained model. Defaults to "false".
+        pipeline (str, optional): Pipeline to run. Defaults to "full".
         template_nb_path (str, optional): Jupyter notebook template.
-            Defaults to os.path.join( config.REMOTE_TRAINING_FOLDER, "remote_training.ipynb" ).
+            Defaults to os.path.join( constants.REMOTE_TRAINING_FOLDER, "remote_training.ipynb" ).
         output_dir (str, optional): Output directory. Defaults to constants.OUTPUT_FOLDER.
         dataset_files (Optional[list], optional): Kaglle datasets. Defaults to None.
     """
@@ -108,6 +111,8 @@ def prepare_notebook(
         ("branch", f"'{branch}'"),
         ("git_user", f"'{git_user}'"),
         ("git_repo", f"'{git_repo}'"),
+        ("load", f"'{load}'"),
+        ("pipeline", f"'{pipeline}'"),
         ("output_dir", "None" if output_dir is None else f"'{output_dir}'"),
         ("dataset_files", "None" if dataset_files is None else f"{dataset_files}"),
     ]
@@ -151,10 +156,11 @@ def define_config(
         "enable_gpu": "true" if not args.cpu else "false",
         "enable_tpu": "false",
         "enable_internet": "true",
-        "full_pipeline": "ture" if args.full else "false",
-        "learning_pipeline": "ture" if args.learning else "false",
-        "testing_pipeline": "ture" if args.testing else "false",
-        "dataset_sources": config.KAGGLE_DATASET_LIST,
+        "load": "true" if args.load else "false",
+        "full_pipeline": "true" if args.full else "false",
+        "learning_pipeline": "true" if args.learning else "false",
+        "testing_pipeline": "true" if args.testing else "false",
+        "dataset_sources": constants.KAGGLE_DATASET_LIST,
         "competition_sources": [],
         "kernel_sources": [],
         "model_sources": [],
@@ -175,6 +181,18 @@ def main(argv):
     args = parser.parse_args(argv)
     notebook_id = args.notebook_id
     exp_str = "_".join(f"{exp:05d}" for exp in args.exp)
+    if args.load:
+        load = "true"
+    else:
+        load = "false"
+    if args.full:
+        pipeline = "full"
+    elif args.learning:
+        pipeline = "learning"
+    elif args.testing:
+        pipeline = "testing"
+    else:
+        raise NotImplementedError
     kaggle_user = kaggle_users[args.user]
     uname_kaggle = kaggle_user["username"]
     kaggle.api._load_config(kaggle_user)
@@ -200,8 +218,10 @@ def main(argv):
         f"{kernel_path}/{notebook_id}" + ".ipynb",
         args.exp,
         branch,
-        git_user=config.GIT_USER,
-        git_repo=config.GIT_REPO,
+        git_user=constants.GIT_USER,
+        git_repo=constants.GIT_REPO,
+        load=load,
+        pipeline=pipeline,
     )
     assert os.path.exists(f"{kernel_path}/{notebook_id}" + ".ipynb")
     with open(f"{kernel_path}/kernel-metadata.json", "w") as f:

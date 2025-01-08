@@ -12,6 +12,7 @@ package-mode = true
 kaggle = "^1.6.17"
 poetry = "^1.7.1"
 python = "^3.10"
+regex = "^2024.11.6"
 uv = "^0.4.29"
 
 # Formatting and good practices

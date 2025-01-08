@@ -2,32 +2,39 @@
 
 ###############################################################
 #                                                             #
-#                          ML CONFIG                          #
+#                            NAMES                            #
 #                                                             #
 ###############################################################
 
 ### MODELS
 
 MODEL_TYPE = "model_type"
-MODEL = "model"  # TO CHANGE
-
-
-ACCURACY = "accuracy"
-RECALL = "recall"
-
-### FEATURES
-
-TARGET = "target"
-PREDICTION = "prediction"
-FEATURES = "features"
-COLS_ID = "cols_id"
+TRANSFORMER = "transformer"
 
 ### PARAMS
 
-DEFAULT_UNKNOWN_TOKEN = "default_unknown_token"
-DEFAULT_UNKNOWN_EMBEDDING = "default_unknown_embedding"
-TRAIN_RATIO = "train_ratio"
-FEATURE_SELECTION = "feature_selection"
-TRAINING_PARAMS = "training_params"
-CROSS_VALIDATION = "cross_validation"
-FINE_TUNING = "fine_tuning"
+# LANGUAGES
+
+SRC_LANGUAGE = "src_language"
+TGT_LANGUAGE = "tgt_language"
+
+# TRANSFORMER ARCHITECTURE
+
+EMBEDDING_DIMENSION = "embedding_dimension"
+MAX_SEQUENCE_LENGTH = "max_sequence_length"
+HEAD_SIZE = "head_size"
+BLOCK_SIZE = "block_size"
+DROPOUT = "dropout"
+NB_HEADS = "nb_heads"
+HEAD_OUTPUT_DIMENSION = "head_output_dimension"
+NB_LAYERS = "nb_layers"
+FEEDFORWARD_DIMENSION = "feedforward_dimension"
+DEVICE = "device"
+
+# TRAINING PARAMETERS
+
+NB_EPOCHS = "nb_epochs"
+LEARNING_RATE = "learning_rate"
+BATCH_SIZE = "batch_size"
+BETAS = "betas"
+EPSILON = "epsilon"

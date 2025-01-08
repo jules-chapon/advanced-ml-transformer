@@ -1,13 +1,219 @@
 """Functions for preprocessing"""
 
+from datasets import load_dataset
+import pandas as pd
 
-def load_data_from_hf(is_origin: bool, is_train: bool) -> None:
-    return None
+from tqdm import tqdm
+from typing import Any
+
+from src.configs import constants, names
 
 
-def load_data_from_local(is_origin: bool, is_train: bool) -> None:
-    return None
+def load_data_from_hf(small: bool = True) -> pd.DataFrame:
+    if small:
+        folder = constants.HF_SMALL_FILENAME
+    else:
+        folder = constants.HF_LARGE_FILENAME
+    df = load_dataset(folder)["train"].to_pandas()
+    return df
 
 
-def load_data(is_origin: bool, is_train: bool, is_local: bool) -> None:
-    return None
+def load_data_from_local(small: bool = True) -> pd.DataFrame:
+    if small:
+        return pd.read_csv(constants.DATA_SMALL_FILENAME, index_col=False)
+    else:
+        return pd.read_csv(constants.DATA_LARGE_FILENAME, index_col=False)
+
+
+def load_data(local: bool = True, small: bool = True) -> pd.DataFrame:
+    if local:
+        return load_data_from_local(small=small)
+    else:
+        return load_data_from_hf(small=small)
+
+
+def get_train_valid_test_sets(
+    df: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    nb_sentences = len(df)
+    nb_train = int(constants.TRAIN_RATIO * nb_sentences)
+    nb_val = int(constants.VALID_RATIO * nb_sentences)
+    df = df.sample(frac=1, random_state=constants.RANDOM_SEED).reset_index(
+        drop=True
+    )  # Shuffle dataset
+    df_train = df[:nb_train]
+    df_valid = df[nb_train : nb_train + nb_val]
+    df_test = df[nb_train + nb_val :]
+    return df_train, df_valid, df_test
+
+
+def from_text_to_tokens(
+    sentence: str, params: dict[str, Any] | None = None
+) -> list[str]:
+    tokens = sentence.split()
+    return tokens
+
+
+def from_tokens_to_text(tokens: list[str], params: dict[str, Any] | None = None) -> str:
+    sentence = " ".join(
+        token
+        for token in tokens
+        if token
+        not in [
+            constants.BOS_TOKEN,
+            constants.EOS_TOKEN,
+            constants.PAD_TOKEN,
+        ]
+    )
+    return sentence
+
+
+def tokenize_sentence_src(
+    sentence: str, vocab: dict[str, int], params: dict[str, Any] | None = None
+) -> list[int]:
+    tokens = from_text_to_tokens(sentence=sentence, params=params)
+    if len(tokens) >= params[names.MAX_SEQUENCE_LENGTH]:
+        tokens = tokens[: params[names.MAX_SEQUENCE_LENGTH]]
+    else:
+        tokens += [constants.PAD_TOKEN] * (
+            params[names.MAX_SEQUENCE_LENGTH] - len(tokens)
+        )
+    token_ids = []
+    for token in tokens:
+        if token not in vocab:
+            vocab[token] = len(vocab)
+        token_ids.append(vocab[token])
+    return token_ids
+
+
+def tokenize_sentence_inference(
+    sentence: str, vocab: dict[str, int], params: dict[str, Any] | None = None
+) -> list[int]:
+    tokens = from_text_to_tokens(sentence=sentence, params=params)
+    if len(tokens) >= params[names.MAX_SEQUENCE_LENGTH]:
+        tokens = tokens[: params[names.MAX_SEQUENCE_LENGTH]]
+    else:
+        tokens += [constants.PAD_TOKEN] * (
+            params[names.MAX_SEQUENCE_LENGTH] - len(tokens)
+        )
+    token_ids = []
+    for token in tokens:
+        if token not in vocab:
+            token_ids.append(vocab[constants.PAD_TOKEN_ID])
+        else:
+            token_ids.append(vocab[token])
+    return token_ids
+
+
+def tokenize_sentence_tgt(
+    sentence: str, vocab: dict[str, int], params: dict[str, Any] | None = None
+) -> list[int]:
+    tokens = [constants.BOS_TOKEN] + from_text_to_tokens(
+        sentence=sentence, params=params
+    )
+    if len(tokens) >= params[names.MAX_SEQUENCE_LENGTH] + 1:
+        tokens = tokens[: params[names.MAX_SEQUENCE_LENGTH] + 1]
+    else:
+        tokens += [constants.EOS_TOKEN] + [constants.PAD_TOKEN] * (
+            params[names.MAX_SEQUENCE_LENGTH] - len(tokens)
+        )
+    input_token_ids = []
+    for i in range(len(tokens)):
+        token = tokens[i]
+        if token not in vocab:
+            vocab[token] = len(vocab)
+        input_token_ids.append(vocab[token])
+    return input_token_ids[:-1], input_token_ids[1:]
+
+
+def tokenize_dataframe(
+    df: pd.DataFrame,
+    src_vocab: dict[str, int],
+    tgt_vocab: dict[str, int],
+    src_input_tokens: list[list[int]],
+    tgt_input_tokens: list[list[int]],
+    tgt_output_tokens: list[int],
+    params: dict[str, Any] | None = None,
+) -> tuple[dict[str, int], dict[str, int], list[list[int]], list[list[int]]]:
+    for src_sent, tgt_sent in tqdm(
+        zip(df[params[names.SRC_LANGUAGE]], df[params[names.TGT_LANGUAGE]]),
+        total=len(df),
+    ):
+        src_input = tokenize_sentence_src(
+            sentence=src_sent, vocab=src_vocab, params=params
+        )
+        tgt_input, tgt_output = tokenize_sentence_tgt(
+            sentence=tgt_sent, vocab=tgt_vocab, params=params
+        )
+        src_input_tokens.append(src_input)
+        tgt_input_tokens.append(tgt_input)
+        tgt_output_tokens.append(tgt_output)
+    return src_vocab, tgt_vocab, src_input_tokens, tgt_input_tokens, tgt_output_tokens
+
+
+def tokenize_datasets(
+    df_train: pd.DataFrame,
+    df_valid: pd.DataFrame,
+    df_test: pd.DataFrame,
+    params: dict[str, Any] | None = None,
+) -> None:
+    src_vocab = constants.DEFAULT_VOCAB  # Initialize source vocabulary
+    tgt_vocab = constants.DEFAULT_VOCAB  # Initialize target vocabulary
+    (
+        src_vocab,
+        tgt_vocab,
+        src_input_tokens_train,
+        tgt_input_tokens_train,
+        tgt_output_tokens_train,
+    ) = tokenize_dataframe(
+        df=df_train,
+        src_vocab=src_vocab,
+        tgt_vocab=tgt_vocab,
+        src_input_tokens=[],
+        tgt_input_tokens=[],
+        tgt_output_tokens=[],
+        params=params,
+    )
+    (
+        src_vocab,
+        tgt_vocab,
+        src_input_tokens_valid,
+        tgt_input_tokens_valid,
+        tgt_output_tokens_valid,
+    ) = tokenize_dataframe(
+        df=df_valid,
+        src_vocab=src_vocab,
+        tgt_vocab=tgt_vocab,
+        src_input_tokens=[],
+        tgt_input_tokens=[],
+        tgt_output_tokens=[],
+        params=params,
+    )
+    (
+        src_vocab,
+        tgt_vocab,
+        src_input_tokens_test,
+        tgt_input_tokens_test,
+        tgt_output_tokens_test,
+    ) = tokenize_dataframe(
+        df=df_test,
+        src_vocab=src_vocab,
+        tgt_vocab=tgt_vocab,
+        src_input_tokens=[],
+        tgt_input_tokens=[],
+        tgt_output_tokens=[],
+        params=params,
+    )
+    return (
+        src_vocab,
+        tgt_vocab,
+        src_input_tokens_train,
+        tgt_input_tokens_train,
+        tgt_output_tokens_train,
+        src_input_tokens_valid,
+        tgt_input_tokens_valid,
+        tgt_output_tokens_valid,
+        src_input_tokens_test,
+        tgt_input_tokens_test,
+        tgt_output_tokens_test,
+    )

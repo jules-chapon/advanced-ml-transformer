@@ -3,11 +3,10 @@
 import sys
 import argparse
 from typing import Optional
-import logging
 
-from src.libs.preprocessing import load_data
+from src.libs.preprocessing import load_data, get_train_valid_test_sets
 
-from src.model.experiments import init_model_from_config
+from src.model.experiments import init_pipeline_from_config, load_pipeline_from_config
 
 
 def get_parser(
@@ -28,7 +27,8 @@ def get_parser(
     parser.add_argument(
         "-e", "--exp", nargs="+", type=int, required=True, help="Experiment id"
     )
-
+    # Load a pretrained pipeline
+    parser.add_argument("--load", action="store_true", help="Load pretrained pipeline")
     # Local flag
     parser.add_argument(
         "--local_data", action="store_true", help="Load data from local filesystem"
@@ -60,17 +60,26 @@ def train_main(argv):
     parser = get_parser()
     args = parser.parse_args(argv)
     # Load data
-    df_learning = load_data(is_train=True, is_local=args.local_data)
-    df_testing = load_data(is_train=False, is_local=args.local_data)
+    df = load_data(args.local_data)
+    df_train, df_valid, df_test = get_train_valid_test_sets(df=df)
     for exp in args.exp:
-        model = init_model_from_config(exp)
-        logging.info(f"Training experiment { exp }")
+        if args.load:
+            pipeline = load_pipeline_from_config(exp)
+        else:
+            pipeline = init_pipeline_from_config(exp)
+        print(f"Experiment {exp}")
         if args.full:
-            model.full_pipeline(df_learning=df_learning, df_testing=df_testing)
+            pipeline.full_pipeline(
+                df_train=df_train, df_valid=df_valid, df_test=df_test
+            )
         elif args.learning:
-            model.learning_pipeline(df_learning=df_learning)
+            pipeline.learning_pipeline(
+                df_train=df_train, df_valid=df_valid, df_test=df_test
+            )
         elif args.testing:
-            model.testing_pipeline(df_learning=df_learning, df_testing=df_testing)
+            pipeline.testing_pipeline(
+                df_train=df_train, df_valid=df_valid, df_test=df_test
+            )
 
 
 if __name__ == "__main__":
