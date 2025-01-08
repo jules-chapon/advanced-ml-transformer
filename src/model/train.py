@@ -60,7 +60,7 @@ def train_main(argv):
     parser = get_parser()
     args = parser.parse_args(argv)
     # Load data
-    df = load_data(args.local_data)
+    df = load_data(local=args.local_data, small=True)
     df_train, df_valid, df_test = get_train_valid_test_sets(df=df)
     for exp in args.exp:
         if args.load:
