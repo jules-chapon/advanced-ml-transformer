@@ -10,6 +10,7 @@
 
 MODEL_TYPE = "model_type"
 TRANSFORMER = "transformer"
+DIFF_TRANSFORMER = "diff_transformer"
 
 ### PARAMS
 
@@ -44,3 +45,4 @@ BATCH_SIZE = "batch_size"
 NUM_WORKERS = "num_workers"
 BETAS = "betas"
 EPSILON = "epsilon"
+LAMBDA_INIT = "lambda_init"

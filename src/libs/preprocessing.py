@@ -1,9 +1,10 @@
 """Functions for preprocessing"""
 
-import regex as re
-import time
 from datasets import load_dataset
 import pandas as pd
+import regex as re
+import time
+import unicodedata
 
 from typing import Any
 
@@ -61,6 +62,20 @@ def get_train_valid_test_sets(
     return df_train, df_valid, df_test
 
 
+def clean_text(text: str) -> str:
+    normalized_text = unicodedata.normalize("NFD", text)
+    text = "".join(char for char in normalized_text if not unicodedata.combining(char))
+    text = unicodedata.normalize("NFKD", text)
+    text = re.sub(r"http\S+", "", text)
+    text = re.sub(r"@\S+", "", text)
+    text = re.sub(r"#\S+", "", text)
+    text = re.sub(r"[^a-zA-Z0-9\s]", " ", text)
+    text = re.sub(r"\s+", " ", text)
+    text = text.strip()
+    text = text.lower()
+    return text
+
+
 def from_text_to_tokens(
     sentence: str, params: dict[str, Any] | None = None
 ) -> list[str]:
@@ -68,7 +83,7 @@ def from_text_to_tokens(
         if params[names.TOKENIZATION] == names.BASIC:
             tokens = sentence.split()
         elif params[names.TOKENIZATION] == names.ADVANCED:
-            tokens = re.findall(r"\w+|\d+|[^\w\s]", sentence)
+            tokens = sentence.split()
     else:
         tokens = [" "]
     return tokens
@@ -91,6 +106,7 @@ def from_tokens_to_text(tokens: list[str], params: dict[str, Any] | None = None)
 def tokenize_sentence_src(
     sentence: str, vocab: dict[str, int], params: dict[str, Any] | None = None
 ) -> list[int]:
+    sentence = clean_text(text=sentence)
     tokens = from_text_to_tokens(sentence=sentence, params=params)
     if len(tokens) >= params[names.MAX_SEQUENCE_LENGTH]:
         tokens = tokens[: params[names.MAX_SEQUENCE_LENGTH]]
@@ -109,6 +125,7 @@ def tokenize_sentence_src(
 def tokenize_sentence_inference(
     sentence: str, vocab: dict[str, int], params: dict[str, Any] | None = None
 ) -> list[int]:
+    sentence = clean_text(text=sentence)
     tokens = from_text_to_tokens(sentence=sentence, params=params)
     if len(tokens) >= params[names.MAX_SEQUENCE_LENGTH]:
         tokens = tokens[: params[names.MAX_SEQUENCE_LENGTH]]
@@ -119,7 +136,7 @@ def tokenize_sentence_inference(
     token_ids = []
     for token in tokens:
         if token not in vocab:
-            token_ids.append(vocab[constants.PAD_TOKEN_ID])
+            token_ids.append(vocab[constants.PAD_TOKEN])
         else:
             token_ids.append(vocab[token])
     return token_ids
@@ -128,6 +145,7 @@ def tokenize_sentence_inference(
 def tokenize_sentence_tgt(
     sentence: str, vocab: dict[str, int], params: dict[str, Any] | None = None
 ) -> list[int]:
+    sentence = clean_text(text=sentence)
     tokens = [constants.BOS_TOKEN] + from_text_to_tokens(
         sentence=sentence, params=params
     )
@@ -176,8 +194,8 @@ def tokenize_datasets(
     df_test: pd.DataFrame,
     params: dict[str, Any] | None = None,
 ) -> None:
-    src_vocab = constants.DEFAULT_VOCAB  # Initialize source vocabulary
-    tgt_vocab = constants.DEFAULT_VOCAB  # Initialize target vocabulary
+    src_vocab = constants.DEFAULT_VOCAB.copy()  # Initialize source vocabulary
+    tgt_vocab = constants.DEFAULT_VOCAB.copy()  # Initialize target vocabulary
     (
         src_vocab,
         tgt_vocab,

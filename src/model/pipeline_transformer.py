@@ -16,6 +16,8 @@ from src.model.dataset import TranslationDataset
 
 from src.model.transformer import Transformer
 
+from src.model.diff_transformer import DiffTransformer
+
 from src.model.pipeline import Pipeline
 
 from src.libs.preprocessing import (
@@ -39,7 +41,7 @@ class TransformerPipeline(Pipeline):
             self.params[names.DEVICE] = "cuda"
         else:
             self.params[names.DEVICE] = "cpu"
-        self.folder_name = f"transformer_{id_experiment}"
+        self.folder_name = f"{self.params[names.MODEL_TYPE]}_{id_experiment}"
         os.makedirs(
             os.path.join(constants.OUTPUT_FOLDER, self.folder_name, "training"),
             exist_ok=True,
@@ -101,9 +103,12 @@ class TransformerPipeline(Pipeline):
     def get_model(
         self: _TransformerPipeline,
     ) -> None:
-        self.model = Transformer(params=self.params)
+        if self.params[names.MODEL_TYPE] == names.TRANSFORMER:
+            self.model = Transformer(params=self.params)
+        elif self.params[names.MODEL_TYPE] == names.DIFF_TRANSFORMER:
+            self.model = DiffTransformer(params=self.params)
         self.model.to(self.params[names.DEVICE])
-        print("Model loaded successfully")
+        print(f"Model {self.params[names.MODEL_TYPE]} loaded successfully")
 
     def preprocess_data(
         self: _TransformerPipeline,
@@ -217,9 +222,10 @@ class TransformerPipeline(Pipeline):
 
     @classmethod
     def load(cls, id_experiment: int | None = None) -> _TransformerPipeline:
+        params = ml_config.EXPERIMENTS_CONFIGS[id_experiment]
         path = os.path.join(
             constants.OUTPUT_FOLDER,
-            f"transformer_{id_experiment}",
+            f"{params[names.MODEL_TYPE]}_{id_experiment}",
             "training",
             "pipeline.pkl",
         )
@@ -230,7 +236,9 @@ class TransformerPipeline(Pipeline):
         else:
             pipeline.device = "cpu"
         pipeline.model = pipeline.model.to(pipeline.device)
-        print("Pipeline loaded successfully")
+        print(
+            f"Pipeline of experiment {id_experiment} of model {params[names.MODEL_TYPE]} loaded successfully"
+        )
         return pipeline
 
 
@@ -251,6 +259,6 @@ if __name__ == "__main__":
     df = load_data_from_local()
     print(len(df))
     df_train, df_valid, df_test = get_train_valid_test_sets(df)
-    id_experiment = 3
+    id_experiment = 0
     pipeline = TransformerPipeline(id_experiment=id_experiment)
     pipeline.full_pipeline(df_train=df_train, df_valid=df_valid, df_test=df_test)

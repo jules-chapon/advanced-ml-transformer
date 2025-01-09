@@ -1,6 +1,5 @@
-"""Transformer class"""
+"""DiffTransformer class"""
 
-import numpy as np
 import time
 import torch
 import torch.nn.functional as F
@@ -10,10 +9,10 @@ from typing import Any
 
 from src.configs import names, constants
 
-from src.model.attention import (
-    MultiHeadAttention,
-    NormLayer,
-    FeedForward,
+from src.model.diff_attention import (
+    MultiDiffHeadAttention,
+    RMSNormLayer,
+    SwiGLU,
     PositionalEncoding,
 )
 
@@ -23,6 +22,7 @@ from src.libs.preprocessing import (
 )
 
 from src.libs.evaluation import calculate_metrics
+
 
 _Encoder = typing.TypeVar(name="_Encoder", bound="Encoder")
 
@@ -34,31 +34,27 @@ class Encoder(torch.nn.Module):
         embedding_dimension: int,
         head_size: int,
         context_length: int,
-        hidden_dimension: int,
+        lambda_init: float,
         dropout: float,
     ) -> _Encoder:
         super().__init__()
-        self.self_attention = MultiHeadAttention(
+        self.self_attention = MultiDiffHeadAttention(
             num_heads=num_heads,
             embedding_dimension=embedding_dimension,
             head_size=head_size,
-            head_output_dimension=embedding_dimension,
+            head_output_dimension=head_size,
             context_length=context_length,
+            lambda_init=lambda_init,
             mask=False,
         )
-        self.norm_layer = NormLayer(dimension=embedding_dimension)
-        self.feed_forward = FeedForward(
-            input_dimension=embedding_dimension,
-            hidden_dimension=hidden_dimension,
-            output_dimension=embedding_dimension,
-        )
+        self.norm_layer = RMSNormLayer(dimension=embedding_dimension)
+        self.swish_glu = SwiGLU(dimension=embedding_dimension)
         self.dropout = torch.nn.Dropout(dropout)
 
     def forward(self: _Encoder, x: torch.Tensor) -> torch.Tensor:
-        out = self.self_attention(q=x, k=x, v=x)
-        out = self.norm_layer(out + self.dropout(input=out))
-        out = self.feed_forward(x=out)
-        out = self.norm_layer(out + self.dropout(input=out))
+        out = self.norm_layer(x)
+        out = self.dropout(self.self_attention(q=out, k=out, v=out)) + out
+        out = self.dropout(self.swish_glu(self.norm_layer(out))) + out
         return out
 
 
@@ -72,51 +68,48 @@ class Decoder(torch.nn.Module):
         embedding_dimension: int,
         head_size: int,
         context_length: int,
-        hidden_dimension: int,
+        lambda_init: float,
         dropout: float,
     ) -> _Decoder:
         super().__init__()
-        self.self_attention = MultiHeadAttention(
+        self.self_attention = MultiDiffHeadAttention(
             num_heads=num_heads,
             embedding_dimension=embedding_dimension,
             head_size=head_size,
             head_output_dimension=embedding_dimension,
             context_length=context_length,
+            lambda_init=lambda_init,
             mask=True,
         )
-        self.cross_attention = MultiHeadAttention(
+        self.cross_attention = MultiDiffHeadAttention(
             num_heads=num_heads,
             embedding_dimension=embedding_dimension,
             head_size=head_size,
             head_output_dimension=embedding_dimension,
             context_length=context_length,
+            lambda_init=lambda_init,
             mask=False,
         )
-        self.norm_layer = NormLayer(dimension=embedding_dimension)
-        self.feed_forward = FeedForward(
-            input_dimension=embedding_dimension,
-            hidden_dimension=hidden_dimension,
-            output_dimension=embedding_dimension,
-        )
+        self.norm_layer = RMSNormLayer(dimension=embedding_dimension)
+        self.swish_glu = SwiGLU(dimension=embedding_dimension)
         self.dropout = torch.nn.Dropout(dropout)
 
     def forward(
         self: _Decoder, x: torch.Tensor, encoder_output: torch.Tensor
     ) -> torch.Tensor:
-        out = self.self_attention(q=x, k=x, v=x)
-        out = self.norm_layer(out + self.dropout(input=out))
+        out = self.norm_layer(x)
+        out = self.dropout(self.self_attention(q=out, k=out, v=out)) + out
         out = self.cross_attention(q=out, k=encoder_output, v=encoder_output)
-        out = self.norm_layer(out + self.dropout(input=out))
-        out = self.feed_forward(x=out)
-        out = self.norm_layer(out + self.dropout(input=out))
+        out = self.dropout(out) + out
+        out = self.dropout(self.swish_glu(self.norm_layer(out))) + out
         return out
 
 
-_Transformer = typing.TypeVar(name="_Transformer", bound="Transformer")
+_DiffTransformer = typing.TypeVar(name="_DiffTransformer", bound="DiffTransformer")
 
 
-class Transformer(torch.nn.Module):
-    def __init__(self: _Transformer, params: dict[str, Any]) -> _Transformer:
+class DiffTransformer(torch.nn.Module):
+    def __init__(self: _DiffTransformer, params: dict[str, Any]) -> None:
         super().__init__()
         self.params = params
         if (self.params[names.DEVICE] == "cuda") and (torch.cuda.is_available()):
@@ -140,7 +133,7 @@ class Transformer(torch.nn.Module):
                     embedding_dimension=self.params[names.EMBEDDING_DIMENSION],
                     head_size=self.params[names.HEAD_SIZE],
                     context_length=self.params[names.MAX_SEQUENCE_LENGTH],
-                    hidden_dimension=self.params[names.FEEDFORWARD_DIMENSION],
+                    lambda_init=self.params[names.LAMBDA_INIT],
                     dropout=self.params[names.DROPOUT],
                 )
                 for _ in range(self.params[names.NB_LAYERS])
@@ -153,7 +146,7 @@ class Transformer(torch.nn.Module):
                     embedding_dimension=self.params[names.EMBEDDING_DIMENSION],
                     head_size=self.params[names.HEAD_SIZE],
                     context_length=self.params[names.MAX_SEQUENCE_LENGTH],
-                    hidden_dimension=self.params[names.FEEDFORWARD_DIMENSION],
+                    lambda_init=self.params[names.LAMBDA_INIT],
                     dropout=self.params[names.DROPOUT],
                 )
                 for _ in range(self.params[names.NB_LAYERS])
@@ -165,7 +158,9 @@ class Transformer(torch.nn.Module):
         )
         self.dropout = torch.nn.Dropout(self.params[names.DROPOUT])
 
-    def forward(self: _Transformer, src_input: torch.Tensor, tgt_input: torch.Tensor):
+    def forward(
+        self: _DiffTransformer, src_input: torch.Tensor, tgt_input: torch.Tensor
+    ):
         # Encoder
         src_embedded = self.encoder_embedding(src_input)
         encoder_output = self.dropout(
@@ -186,7 +181,7 @@ class Transformer(torch.nn.Module):
         return logits
 
     def train_model(
-        self: _Transformer,
+        self: _DiffTransformer,
         train_dataloader: DataLoader,
         valid_dataloader: DataLoader,
     ) -> tuple[list[int], list[int]]:
@@ -253,7 +248,7 @@ class Transformer(torch.nn.Module):
         return train_loss_history, valid_loss_history
 
     def evaluate(
-        self: _Transformer,
+        self: _DiffTransformer,
         test_dataloader: DataLoader,
         src_vocab: dict[str, int],
         tgt_vocab: dict[str, int],
@@ -310,67 +305,8 @@ class Transformer(torch.nn.Module):
         )
         return metrics, translations_src, translations_tgt, translations_predictions
 
-    def evaluate_bis(
-        self: _Transformer,
-        test_dataloader: DataLoader,
-        src_vocab: dict[str, int],
-        tgt_vocab: dict[str, int],
-    ) -> tuple[dict[str, float], list[str], list[str], list[str]]:
-        start_time = time.time()
-        translations_src = []
-        translations_tgt = []
-        translations_predictions = []
-        src_vocab_reversed = {token_id: token for token, token_id in src_vocab.items()}
-        tgt_vocab_reversed = {token_id: token for token, token_id in tgt_vocab.items()}
-        self.eval()
-        with torch.no_grad():
-            for src_input, tgt_input, tgt_output in test_dataloader:
-                src_input, tgt_input, tgt_output = (
-                    src_input.to(self.params[names.DEVICE]),
-                    tgt_input.to(self.params[names.DEVICE]),
-                    tgt_output.to(self.params[names.DEVICE]),
-                )
-                translation_tensor = self.decode(src_input=src_input)
-                src_input_text = np.array(
-                    [[src_vocab_reversed[i.item()] for i in row] for row in src_input]
-                )
-                tgt_output_text = np.array(
-                    [[tgt_vocab_reversed[i.item()] for i in row] for row in tgt_input]
-                )
-                translation_tensor_text = np.array(
-                    [
-                        [tgt_vocab_reversed[i.item()] for i in row]
-                        for row in translation_tensor
-                    ]
-                )
-                for i in range(src_input.shape[0]):
-                    translations_src.append(
-                        from_tokens_to_text(
-                            tokens=src_input_text[i], params=self.params
-                        )
-                    )
-                    translations_tgt.append(
-                        from_tokens_to_text(
-                            tokens=tgt_output_text[i], params=self.params
-                        )
-                    )
-                    translations_predictions.append(
-                        from_tokens_to_text(
-                            tokens=translation_tensor_text[i], params=self.params
-                        )
-                    )
-        rouge_1, rouge_l = calculate_metrics(
-            predicted_sentences=translations_predictions,
-            reference_sentences=translations_tgt,
-        )
-        metrics = {"rouge_1": rouge_1, "rouge_l": rouge_l}
-        print(
-            f"Evaluated successfully. It took {(time.time() - start_time):.2f} seconds"
-        )
-        return metrics, translations_src, translations_tgt, translations_predictions
-
     def decode(
-        self: _Transformer,
+        self: _DiffTransformer,
         src_input: torch.Tensor,  # (T, C)
     ):
         tgt = torch.tensor(
@@ -401,42 +337,10 @@ class Transformer(torch.nn.Module):
             output = torch.multinomial(probs, num_samples=1)  # (1, 1)
             tgt = torch.cat((tgt, output), dim=1)  # (1, T + 1)
             last_predicted_token = output.item()
-        return tgt.squeeze()  # (1, T)
-
-    def decode_bis(
-        self: _Transformer,
-        src_input: torch.Tensor,  # (B, T)
-    ):
-        tgt = torch.full(
-            (src_input.size(0), 1), constants.BOS_TOKEN_ID, dtype=torch.long
-        ).to(self.params[names.DEVICE])  # (B, 1)
-        # Encoder
-        src_embedded = self.encoder_embedding(src_input)
-        encoder_output = self.dropout(
-            src_embedded + self.positional_encoding(x=src_embedded)
-        )
-        for encoder_layer in self.encoder_layers:
-            encoder_output = encoder_layer(x=encoder_output)
-        for i in range(self.params[names.MAX_SEQUENCE_LENGTH]):
-            tgt_embedded = self.decoder_embedding(
-                tgt[:, -self.params[names.MAX_SEQUENCE_LENGTH] :]
-            )
-            decoder_output = self.dropout(
-                tgt_embedded + self.positional_encoding(x=tgt_embedded)
-            )
-            for decoder_layer in self.decoder_layers:
-                decoder_output = decoder_layer(
-                    x=decoder_output, encoder_output=encoder_output
-                )
-            logits = self.linear(decoder_output)  # (B, T, C)
-            logits = logits[:, -1, :]  # (B, C)
-            probs = F.softmax(logits, dim=-1)  # (B, C)
-            output = torch.multinomial(probs, num_samples=1)  # (B, 1)
-            tgt = torch.cat((tgt, output), dim=1)  # (B, T + 1)
-        return tgt[:, 1:]  # (B, T)
+        return tgt[:, 1:].squeeze()  # (T)
 
     def translate(
-        self: _Transformer,
+        self: _DiffTransformer,
         src_vocab: dict[str, int],
         tgt_vocab_reversed: dict[str, int],
         src_text: str,
@@ -453,9 +357,9 @@ class Transformer(torch.nn.Module):
         self.eval()
         with torch.no_grad():
             translation_tensor = self.decode(src_input=src_tensor)
-            translation_indices = translation_tensor.squeeze(0).cpu().tolist()
             if isinstance(translation_tensor, int):
                 return ""
+            translation_indices = translation_tensor.squeeze(0).cpu().tolist()
             translation_text_tokens = [
                 tgt_vocab_reversed[idx] for idx in translation_indices
             ]
