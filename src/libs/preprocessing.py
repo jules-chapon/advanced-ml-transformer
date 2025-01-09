@@ -1,5 +1,6 @@
 """Functions for preprocessing"""
 
+import regex as re
 import time
 from datasets import load_dataset
 import pandas as pd
@@ -64,7 +65,10 @@ def from_text_to_tokens(
     sentence: str, params: dict[str, Any] | None = None
 ) -> list[str]:
     if isinstance(sentence, str):
-        tokens = sentence.split()
+        if params[names.TOKENIZATION] == names.BASIC:
+            tokens = sentence.split()
+        elif params[names.TOKENIZATION] == names.ADVANCED:
+            tokens = re.findall(r"\w+|\d+|[^\w\s]", sentence)
     else:
         tokens = [" "]
     return tokens
