@@ -16,7 +16,7 @@ def init_pipeline_from_config(id_experiment: int) -> TransformerPipeline | None:
         TransformerPipeline | None: Pipeline with the parameters of the given experiment.
     """
     config = ml_config.EXPERIMENTS_CONFIGS[id_experiment]
-    if config[names.MODEL_TYPE] == names.TRANSFORMER:
+    if config[names.MODEL_TYPE] in [names.TRANSFORMER, names.DIFF_TRANSFORMER]:
         return TransformerPipeline(id_experiment=id_experiment)
     else:
         return None
