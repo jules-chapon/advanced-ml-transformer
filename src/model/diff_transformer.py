@@ -47,14 +47,15 @@ class Encoder(torch.nn.Module):
             lambda_init=lambda_init,
             mask=False,
         )
-        self.norm_layer = RMSNormLayer(dimension=embedding_dimension)
+        self.norm_layer_1 = RMSNormLayer(dimension=embedding_dimension)
+        self.norm_layer_2 = RMSNormLayer(dimension=embedding_dimension)
         self.swish_glu = SwiGLU(dimension=embedding_dimension)
         self.dropout = torch.nn.Dropout(dropout)
 
     def forward(self: _Encoder, x: torch.Tensor) -> torch.Tensor:
-        out = self.norm_layer(x)
+        out = self.norm_layer_1(x)
         out = self.dropout(self.self_attention(q=out, k=out, v=out)) + out
-        out = self.dropout(self.swish_glu(self.norm_layer(out))) + out
+        out = self.dropout(self.swish_glu(self.norm_layer_2(out))) + out
         return out
 
 
@@ -90,18 +91,19 @@ class Decoder(torch.nn.Module):
             lambda_init=lambda_init,
             mask=False,
         )
-        self.norm_layer = RMSNormLayer(dimension=embedding_dimension)
+        self.norm_layer_1 = RMSNormLayer(dimension=embedding_dimension)
+        self.norm_layer_2 = RMSNormLayer(dimension=embedding_dimension)
         self.swish_glu = SwiGLU(dimension=embedding_dimension)
         self.dropout = torch.nn.Dropout(dropout)
 
     def forward(
         self: _Decoder, x: torch.Tensor, encoder_output: torch.Tensor
     ) -> torch.Tensor:
-        out = self.norm_layer(x)
+        out = self.norm_layer_1(x)
         out = self.dropout(self.self_attention(q=out, k=out, v=out)) + out
         out = self.cross_attention(q=out, k=encoder_output, v=encoder_output)
         out = self.dropout(out) + out
-        out = self.dropout(self.swish_glu(self.norm_layer(out))) + out
+        out = self.dropout(self.swish_glu(self.norm_layer_2(out))) + out
         return out
 
 

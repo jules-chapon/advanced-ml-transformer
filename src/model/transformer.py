@@ -46,7 +46,8 @@ class Encoder(torch.nn.Module):
             context_length=context_length,
             mask=False,
         )
-        self.norm_layer = NormLayer(dimension=embedding_dimension)
+        self.norm_layer_1 = NormLayer(dimension=embedding_dimension)
+        self.norm_layer_2 = NormLayer(dimension=embedding_dimension)
         self.feed_forward = FeedForward(
             input_dimension=embedding_dimension,
             hidden_dimension=hidden_dimension,
@@ -56,9 +57,9 @@ class Encoder(torch.nn.Module):
 
     def forward(self: _Encoder, x: torch.Tensor) -> torch.Tensor:
         out = self.self_attention(q=x, k=x, v=x)
-        out = self.norm_layer(out + self.dropout(input=out))
+        out = self.norm_layer_1(out + self.dropout(input=out))
         out = self.feed_forward(x=out)
-        out = self.norm_layer(out + self.dropout(input=out))
+        out = self.norm_layer_2(out + self.dropout(input=out))
         return out
 
 
@@ -92,7 +93,9 @@ class Decoder(torch.nn.Module):
             context_length=context_length,
             mask=False,
         )
-        self.norm_layer = NormLayer(dimension=embedding_dimension)
+        self.norm_layer_1 = NormLayer(dimension=embedding_dimension)
+        self.norm_layer_2 = NormLayer(dimension=embedding_dimension)
+        self.norm_layer_3 = NormLayer(dimension=embedding_dimension)
         self.feed_forward = FeedForward(
             input_dimension=embedding_dimension,
             hidden_dimension=hidden_dimension,
@@ -104,11 +107,11 @@ class Decoder(torch.nn.Module):
         self: _Decoder, x: torch.Tensor, encoder_output: torch.Tensor
     ) -> torch.Tensor:
         out = self.self_attention(q=x, k=x, v=x)
-        out = self.norm_layer(out + self.dropout(input=out))
+        out = self.norm_layer_1(out + self.dropout(input=out))
         out = self.cross_attention(q=out, k=encoder_output, v=encoder_output)
-        out = self.norm_layer(out + self.dropout(input=out))
+        out = self.norm_layer_2(out + self.dropout(input=out))
         out = self.feed_forward(x=out)
-        out = self.norm_layer(out + self.dropout(input=out))
+        out = self.norm_layer_3(out + self.dropout(input=out))
         return out
 
 
