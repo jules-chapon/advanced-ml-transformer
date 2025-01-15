@@ -61,7 +61,9 @@ def load_data(local: bool = True, type: str = "samples") -> pd.DataFrame:
         return load_data_from_hf(type=type)
 
 
-def clean_text(text: str) -> str:
+def clean_text(text: str | None) -> str:
+    if text is None:
+        return constants.PAD_TOKEN
     normalized_text = unicodedata.normalize("NFD", text)
     text = "".join(char for char in normalized_text if not unicodedata.combining(char))
     text = unicodedata.normalize("NFKD", text)
