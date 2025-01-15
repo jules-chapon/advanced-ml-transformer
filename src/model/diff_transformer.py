@@ -141,9 +141,13 @@ class DiffTransformer(torch.nn.Module):
         self.decoder_embedding = torch.nn.Embedding(
             self.params[names.TGT_VOCAB_SIZE], self.params[names.EMBEDDING_DIMENSION]
         )
-        self.positional_encoding = PositionalEncoding(
+        self.encoder_positional_encoding = PositionalEncoding(
             embedding_dimension=self.params[names.EMBEDDING_DIMENSION],
-            context_length=self.params[names.MAX_SEQUENCE_LENGTH],
+            context_length=self.params[names.MAX_LENGTH_SRC],
+        )
+        self.decoder_positional_encoding = PositionalEncoding(
+            embedding_dimension=self.params[names.EMBEDDING_DIMENSION],
+            context_length=self.params[names.MAX_CONTEXT_TGT],
         )
         self.encoder_layers = torch.nn.ModuleList(
             [
@@ -151,7 +155,7 @@ class DiffTransformer(torch.nn.Module):
                     num_heads=self.params[names.NB_HEADS],
                     embedding_dimension=self.params[names.EMBEDDING_DIMENSION],
                     head_size=self.params[names.HEAD_SIZE],
-                    context_length=self.params[names.MAX_SEQUENCE_LENGTH],
+                    context_length=self.params[names.MAX_LENGTH_SRC],
                     lambda_init=self.params[names.LAMBDA_INIT],
                     dropout=self.params[names.DROPOUT],
                 )
@@ -164,7 +168,7 @@ class DiffTransformer(torch.nn.Module):
                     num_heads=self.params[names.NB_HEADS],
                     embedding_dimension=self.params[names.EMBEDDING_DIMENSION],
                     head_size=self.params[names.HEAD_SIZE],
-                    context_length=self.params[names.MAX_SEQUENCE_LENGTH],
+                    context_length=self.params[names.MAX_CONTEXT_TGT],
                     lambda_init=self.params[names.LAMBDA_INIT],
                     dropout=self.params[names.DROPOUT],
                 )
@@ -184,7 +188,7 @@ class DiffTransformer(torch.nn.Module):
         src_pad_mask = self.get_padding_mask(src_input)
         src_embedded = self.encoder_embedding(src_input)
         encoder_output = self.dropout(
-            src_embedded + self.positional_encoding(x=src_embedded)
+            src_embedded + self.encoder_positional_encoding(x=src_embedded)
         )
         for encoder_layer in self.encoder_layers:
             encoder_output = encoder_layer(x=encoder_output, pad_mask=src_pad_mask)
@@ -192,7 +196,7 @@ class DiffTransformer(torch.nn.Module):
         tgt_pad_mask = self.get_padding_mask(input=tgt_input)
         tgt_embedded = self.decoder_embedding(tgt_input)
         decoder_output = self.dropout(
-            tgt_embedded + self.positional_encoding(x=tgt_embedded)
+            tgt_embedded + self.decoder_positional_encoding(x=tgt_embedded)
         )
         for decoder_layer in self.decoder_layers:
             decoder_output = decoder_layer(
