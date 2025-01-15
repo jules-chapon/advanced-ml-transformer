@@ -19,15 +19,19 @@ REMOTE_TRAINING_FOLDER = "remote_training"
 
 ### LOCAL
 
-DATA_LARGE_FILENAME = "data/input/en-fr.csv"
+DATA_TRAIN_FILENAME = "data/input/train.csv"
+DATA_VALID_FILENAME = "data/input/valid.csv"
+DATA_TEST_FILENAME = "data/input/test.csv"
+DATA_SAMPLES_FILENAME = "data/input/samples.csv"
 
-DATA_SMALL_FILENAME = "data/input/samples.csv"
 
 ### HUGGING FACE
 
-HF_LARGE_FILENAME = "jules-chapon/advanced-ml-transformer-large"
+HF_TRAIN_FILENAME = "jules-chapon/advanced-ml-train"
+HF_VALID_FILENAME = "jules-chapon/advanced-ml-valid"
+HF_TEST_FILENAME = "jules-chapon/advanced-ml-test"
+HF_SAMPLES_FILENAME = "jules-chapon/advanced-ml-transformer-small"
 
-HF_SMALL_FILENAME = "jules-chapon/advanced-ml-transformer-small"
 
 ###############################################################
 #                                                             #
@@ -52,10 +56,7 @@ KAGGLE_DATASET_LIST = []
 
 RANDOM_SEED = 42
 
-MAX_LEN_DF = 100000  # 100 000 lignes
-
-TRAIN_RATIO = 0.90
-VALID_RATIO = 0.09
+NB_DATA_TRAIN = 10  # 1 000 000 lignes
 
 
 # TOKENS

@@ -1,6 +1,6 @@
 """Transformer class"""
 
-import numpy as np
+import pandas as pd
 import time
 import torch
 import torch.nn.functional as F
@@ -18,7 +18,8 @@ from src.model.attention import (
 )
 
 from src.libs.preprocessing import (
-    tokenize_sentence_inference,
+    clean_text,
+    tokenize_sentence,
     from_tokens_to_text,
 )
 
@@ -55,8 +56,10 @@ class Encoder(torch.nn.Module):
         )
         self.dropout = torch.nn.Dropout(dropout)
 
-    def forward(self: _Encoder, x: torch.Tensor) -> torch.Tensor:
-        out = self.self_attention(q=x, k=x, v=x)
+    def forward(
+        self: _Encoder, x: torch.Tensor, pad_mask: torch.Tensor
+    ) -> torch.Tensor:
+        out = self.self_attention(q=x, k=x, v=x, pad_mask=pad_mask)
         out = self.norm_layer_1(out + self.dropout(input=out))
         out = self.feed_forward(x=out)
         out = self.norm_layer_2(out + self.dropout(input=out))
@@ -104,11 +107,16 @@ class Decoder(torch.nn.Module):
         self.dropout = torch.nn.Dropout(dropout)
 
     def forward(
-        self: _Decoder, x: torch.Tensor, encoder_output: torch.Tensor
+        self: _Decoder,
+        x: torch.Tensor,
+        encoder_output: torch.Tensor,
+        pad_mask: torch.Tensor,
     ) -> torch.Tensor:
-        out = self.self_attention(q=x, k=x, v=x)
+        out = self.self_attention(q=x, k=x, v=x, pad_mask=pad_mask)
         out = self.norm_layer_1(out + self.dropout(input=out))
-        out = self.cross_attention(q=out, k=encoder_output, v=encoder_output)
+        out = self.cross_attention(
+            q=out, k=encoder_output, v=encoder_output, pad_mask=pad_mask
+        )
         out = self.norm_layer_2(out + self.dropout(input=out))
         out = self.feed_forward(x=out)
         out = self.norm_layer_3(out + self.dropout(input=out))
@@ -132,9 +140,13 @@ class Transformer(torch.nn.Module):
         self.decoder_embedding = torch.nn.Embedding(
             self.params[names.TGT_VOCAB_SIZE], self.params[names.EMBEDDING_DIMENSION]
         )
-        self.positional_encoding = PositionalEncoding(
+        self.encoder_positional_encoding = PositionalEncoding(
             embedding_dimension=self.params[names.EMBEDDING_DIMENSION],
-            context_length=self.params[names.MAX_SEQUENCE_LENGTH],
+            context_length=self.params[names.MAX_LENGTH_SRC],
+        )
+        self.decoder_positional_encoding = PositionalEncoding(
+            embedding_dimension=self.params[names.EMBEDDING_DIMENSION],
+            context_length=self.params[names.MAX_CONTEXT_TGT],
         )
         self.encoder_layers = torch.nn.ModuleList(
             [
@@ -142,7 +154,7 @@ class Transformer(torch.nn.Module):
                     num_heads=self.params[names.NB_HEADS],
                     embedding_dimension=self.params[names.EMBEDDING_DIMENSION],
                     head_size=self.params[names.HEAD_SIZE],
-                    context_length=self.params[names.MAX_SEQUENCE_LENGTH],
+                    context_length=self.params[names.MAX_LENGTH_SRC],
                     hidden_dimension=self.params[names.FEEDFORWARD_DIMENSION],
                     dropout=self.params[names.DROPOUT],
                 )
@@ -155,7 +167,7 @@ class Transformer(torch.nn.Module):
                     num_heads=self.params[names.NB_HEADS],
                     embedding_dimension=self.params[names.EMBEDDING_DIMENSION],
                     head_size=self.params[names.HEAD_SIZE],
-                    context_length=self.params[names.MAX_SEQUENCE_LENGTH],
+                    context_length=self.params[names.MAX_CONTEXT_TGT],
                     hidden_dimension=self.params[names.FEEDFORWARD_DIMENSION],
                     dropout=self.params[names.DROPOUT],
                 )
@@ -170,23 +182,29 @@ class Transformer(torch.nn.Module):
 
     def forward(self: _Transformer, src_input: torch.Tensor, tgt_input: torch.Tensor):
         # Encoder
+        src_pad_mask = self.get_padding_mask(src_input)
         src_embedded = self.encoder_embedding(src_input)
         encoder_output = self.dropout(
-            src_embedded + self.positional_encoding(x=src_embedded)
+            src_embedded + self.encoder_positional_encoding(x=src_embedded)
         )
         for encoder_layer in self.encoder_layers:
-            encoder_output = encoder_layer(x=encoder_output)
+            encoder_output = encoder_layer(x=encoder_output, pad_mask=src_pad_mask)
         # Decoder
+        tgt_pad_mask = self.get_padding_mask(input=tgt_input)
         tgt_embedded = self.decoder_embedding(tgt_input)
         decoder_output = self.dropout(
-            tgt_embedded + self.positional_encoding(x=tgt_embedded)
+            tgt_embedded + self.decoder_positional_encoding(x=tgt_embedded)
         )
         for decoder_layer in self.decoder_layers:
             decoder_output = decoder_layer(
-                x=decoder_output, encoder_output=encoder_output
+                x=decoder_output, encoder_output=encoder_output, pad_mask=tgt_pad_mask
             )
         logits = self.linear(decoder_output)
         return logits
+
+    def get_padding_mask(self: _Transformer, input: torch.Tensor) -> torch.Tensor:
+        pad_mask = input == constants.PAD_TOKEN_ID
+        return pad_mask
 
     def train_model(
         self: _Transformer,
@@ -208,14 +226,14 @@ class Transformer(torch.nn.Module):
             # Training
             self.train()
             train_loss = 0.0
-            for src_input, tgt_input, tgt_output in train_dataloader:
-                src_input, tgt_input, tgt_output = (
-                    src_input.to(self.params[names.DEVICE]),
+            for src, tgt_input, tgt_output in train_dataloader:
+                src, tgt_input, tgt_output = (
+                    src.to(self.params[names.DEVICE]),
                     tgt_input.to(self.params[names.DEVICE]),
                     tgt_output.to(self.params[names.DEVICE]),
                 )
                 optimizer.zero_grad()
-                logits = self(src_input, tgt_input)
+                logits = self(src, tgt_input)
                 B, T, _ = logits.shape
                 loss = criterion(
                     logits.view(B * T, self.params[names.TGT_VOCAB_SIZE]),
@@ -229,17 +247,17 @@ class Transformer(torch.nn.Module):
             self.eval()
             valid_loss = 0.0
             with torch.no_grad():
-                for src_input, tgt_input, tgt_output in valid_dataloader:
-                    src_input, tgt_input, tgt_output = (
-                        src_input.to(self.params[names.DEVICE]),
+                for src, tgt_input, tgt_output in valid_dataloader:
+                    src, tgt_input, tgt_output = (
+                        src.to(self.params[names.DEVICE]),
                         tgt_input.to(self.params[names.DEVICE]),
                         tgt_output.to(self.params[names.DEVICE]),
                     )
-                    logits = self(src_input, tgt_input)
+                    logits = self(src, tgt_input)
                     B, T, _ = logits.shape
                     loss = criterion(
-                        logits.view(B * T, self.params[names.TGT_VOCAB_SIZE]),
-                        tgt_output.view(B * T),
+                        logits.reshape(B * T, self.params[names.TGT_VOCAB_SIZE]),
+                        tgt_output.reshape(B * T),
                     )
                     valid_loss += loss.item()
             ###
@@ -247,7 +265,7 @@ class Transformer(torch.nn.Module):
             valid_loss /= len(valid_dataloader)
             train_loss_history.append(train_loss)
             valid_loss_history.append(valid_loss)
-            if epoch % (1 + self.params[names.NB_EPOCHS] // 20) == 0:
+            if epoch % (1 + self.params[names.NB_EPOCHS] // 1) == 0:
                 print(f"Epoch {epoch+1} / {self.params[names.NB_EPOCHS]} -------------")
                 print(f"Train loss : {train_loss:.4f}. Valid loss : {valid_loss:.4f}.")
         print(
@@ -255,214 +273,70 @@ class Transformer(torch.nn.Module):
         )
         return train_loss_history, valid_loss_history
 
-    def evaluate(
-        self: _Transformer,
-        test_dataloader: DataLoader,
-        src_vocab: dict[str, int],
-        tgt_vocab: dict[str, int],
-    ) -> tuple[dict[str, float], list[str], list[str], list[str]]:
-        start_time = time.time()
-        translations_src = []
-        translations_tgt = []
-        translations_predictions = []
-        src_vocab_reversed = {token_id: token for token, token_id in src_vocab.items()}
-        tgt_vocab_reversed = {token_id: token for token, token_id in tgt_vocab.items()}
-        self.eval()
-        with torch.no_grad():
-            for (
-                src_input_tensor,
-                tgt_input_tensor,
-                tgt_output_tensor,
-            ) in test_dataloader:
-                src_input_tensor, tgt_input_tensor, tgt_output_tensor = (
-                    src_input_tensor.to(self.params[names.DEVICE]),
-                    tgt_input_tensor.to(self.params[names.DEVICE]),
-                    tgt_output_tensor.to(self.params[names.DEVICE]),
-                )
-                for src_input, tgt_input, tgt_output in zip(
-                    src_input_tensor, tgt_input_tensor, tgt_output_tensor
-                ):
-                    translation_tensor = self.decode(src_input=src_input.unsqueeze(0))
-                    translations_src.append(
-                        from_tokens_to_text(
-                            tokens=[src_vocab_reversed[i.item()] for i in src_input],
-                            params=self.params,
-                        )
-                    )
-                    translations_tgt.append(
-                        from_tokens_to_text(
-                            tokens=[tgt_vocab_reversed[i.item()] for i in tgt_input],
-                            params=self.params,
-                        )
-                    )
-                    translations_predictions.append(
-                        from_tokens_to_text(
-                            tokens=[
-                                tgt_vocab_reversed[i.item()] for i in translation_tensor
-                            ],
-                            params=self.params,
-                        )
-                    )
-        rouge_1, rouge_l = calculate_metrics(
-            predicted_sentences=translations_predictions,
-            reference_sentences=translations_tgt,
-        )
-        metrics = {"rouge_1": rouge_1, "rouge_l": rouge_l}
-        print(
-            f"Evaluated successfully. It took {(time.time() - start_time):.2f} seconds"
-        )
-        return metrics, translations_src, translations_tgt, translations_predictions
-
-    def evaluate_bis(
-        self: _Transformer,
-        test_dataloader: DataLoader,
-        src_vocab: dict[str, int],
-        tgt_vocab: dict[str, int],
-    ) -> tuple[dict[str, float], list[str], list[str], list[str]]:
-        start_time = time.time()
-        translations_src = []
-        translations_tgt = []
-        translations_predictions = []
-        src_vocab_reversed = {token_id: token for token, token_id in src_vocab.items()}
-        tgt_vocab_reversed = {token_id: token for token, token_id in tgt_vocab.items()}
-        self.eval()
-        with torch.no_grad():
-            for src_input, tgt_input, tgt_output in test_dataloader:
-                src_input, tgt_input, tgt_output = (
-                    src_input.to(self.params[names.DEVICE]),
-                    tgt_input.to(self.params[names.DEVICE]),
-                    tgt_output.to(self.params[names.DEVICE]),
-                )
-                translation_tensor = self.decode(src_input=src_input)
-                src_input_text = np.array(
-                    [[src_vocab_reversed[i.item()] for i in row] for row in src_input]
-                )
-                tgt_output_text = np.array(
-                    [[tgt_vocab_reversed[i.item()] for i in row] for row in tgt_input]
-                )
-                translation_tensor_text = np.array(
-                    [
-                        [tgt_vocab_reversed[i.item()] for i in row]
-                        for row in translation_tensor
-                    ]
-                )
-                for i in range(src_input.shape[0]):
-                    translations_src.append(
-                        from_tokens_to_text(
-                            tokens=src_input_text[i], params=self.params
-                        )
-                    )
-                    translations_tgt.append(
-                        from_tokens_to_text(
-                            tokens=tgt_output_text[i], params=self.params
-                        )
-                    )
-                    translations_predictions.append(
-                        from_tokens_to_text(
-                            tokens=translation_tensor_text[i], params=self.params
-                        )
-                    )
-        rouge_1, rouge_l = calculate_metrics(
-            predicted_sentences=translations_predictions,
-            reference_sentences=translations_tgt,
-        )
-        metrics = {"rouge_1": rouge_1, "rouge_l": rouge_l}
-        print(
-            f"Evaluated successfully. It took {(time.time() - start_time):.2f} seconds"
-        )
-        return metrics, translations_src, translations_tgt, translations_predictions
-
-    def decode(
-        self: _Transformer,
-        src_input: torch.Tensor,  # (T, C)
-    ):
-        tgt = torch.tensor(
-            [constants.BOS_TOKEN_ID], dtype=torch.long, device=self.params[names.DEVICE]
-        ).unsqueeze(0)  # (1, 1)
-        # Encoder
-        src_embedded = self.encoder_embedding(src_input)
-        encoder_output = self.dropout(
-            src_embedded + self.positional_encoding(x=src_embedded)
-        )
-        for encoder_layer in self.encoder_layers:
-            encoder_output = encoder_layer(x=encoder_output)
-        last_predicted_token = constants.BOS_TOKEN_ID
-        for _ in range(self.params[names.MAX_SEQUENCE_LENGTH]):
-            if last_predicted_token == constants.EOS_TOKEN_ID:
-                break
-            tgt_embedded = self.decoder_embedding(tgt)
-            decoder_output = self.dropout(
-                tgt_embedded + self.positional_encoding(x=tgt_embedded)
-            )
-            for decoder_layer in self.decoder_layers:
-                decoder_output = decoder_layer(
-                    x=decoder_output, encoder_output=encoder_output
-                )
-            logits = self.linear(decoder_output)  # (1, T, C)
-            logits = logits[:, -1, :]  # (1, C)
-            probs = F.softmax(logits, dim=-1)  # (1, C)
-            output = torch.multinomial(probs, num_samples=1)  # (1, 1)
-            tgt = torch.cat((tgt, output), dim=1)  # (1, T + 1)
-            last_predicted_token = output.item()
-        return tgt.squeeze()  # (1, T)
-
-    def decode_bis(
-        self: _Transformer,
-        src_input: torch.Tensor,  # (B, T)
-    ):
-        tgt = torch.full(
-            (src_input.size(0), 1), constants.BOS_TOKEN_ID, dtype=torch.long
-        ).to(self.params[names.DEVICE])  # (B, 1)
-        # Encoder
-        src_embedded = self.encoder_embedding(src_input)
-        encoder_output = self.dropout(
-            src_embedded + self.positional_encoding(x=src_embedded)
-        )
-        for encoder_layer in self.encoder_layers:
-            encoder_output = encoder_layer(x=encoder_output)
-        for i in range(self.params[names.MAX_SEQUENCE_LENGTH]):
-            tgt_embedded = self.decoder_embedding(
-                tgt[:, -self.params[names.MAX_SEQUENCE_LENGTH] :]
-            )
-            decoder_output = self.dropout(
-                tgt_embedded + self.positional_encoding(x=tgt_embedded)
-            )
-            for decoder_layer in self.decoder_layers:
-                decoder_output = decoder_layer(
-                    x=decoder_output, encoder_output=encoder_output
-                )
-            logits = self.linear(decoder_output)  # (B, T, C)
-            logits = logits[:, -1, :]  # (B, C)
-            probs = F.softmax(logits, dim=-1)  # (B, C)
-            output = torch.multinomial(probs, num_samples=1)  # (B, 1)
-            tgt = torch.cat((tgt, output), dim=1)  # (B, T + 1)
-        return tgt[:, 1:]  # (B, T)
-
     def translate(
         self: _Transformer,
         src_vocab: dict[str, int],
         tgt_vocab_reversed: dict[str, int],
         src_text: str,
-    ) -> torch.Tensor:
-        src_tensor = (
-            torch.tensor(
-                tokenize_sentence_inference(
-                    sentence=src_text, vocab=src_vocab, params=self.params
-                )
-            )
-            .unsqueeze(0)
-            .to(self.params[names.DEVICE])
-        )
+    ) -> str:
         self.eval()
         with torch.no_grad():
-            translation_tensor = self.decode(src_input=src_tensor)
-            translation_indices = translation_tensor.squeeze(0).cpu().tolist()
-            if isinstance(translation_tensor, int):
-                return ""
-            translation_text_tokens = [
-                tgt_vocab_reversed[idx] for idx in translation_indices
-            ]
-            translation = from_tokens_to_text(
-                tokens=translation_text_tokens, params=self.params
+            src_tokens = tokenize_sentence(
+                sentence=src_text, vocab=src_vocab, params=self.params
             )
-        return translation
+            if len(src_tokens) < self.params[names.MAX_LENGTH_SRC]:
+                src_tokens += [constants.PAD_TOKEN_ID] * (
+                    self.params[names.MAX_LENGTH_SRC] - len(src_tokens)
+                )
+            src_tensor = torch.tensor(
+                src_tokens[: self.params[names.MAX_LENGTH_SRC]]
+            ).unsqueeze(0)  # (1, T)
+            tgt_tensor = torch.tensor([constants.BOS_TOKEN_ID]).unsqueeze(0)  # (1, 1)
+            generated_tokens = [constants.BOS_TOKEN_ID]
+            for _ in range(self.params[names.MAX_LENGTH_TGT]):
+                logits = self(
+                    src_tensor, tgt_tensor[:, : self.params[names.MAX_CONTEXT_TGT]]
+                )
+                logits = logits[:, -1, :]  # (1, C)
+                probs = F.softmax(logits, dim=-1)  # (1, C)
+                output = torch.multinomial(probs, num_samples=1)  # (1, 1)
+                tgt_tensor = torch.cat((tgt_tensor, output), dim=1)  # (1, T + 1)
+                predicted_token_id = output.item()
+                generated_tokens.append(predicted_token_id)
+                if predicted_token_id == constants.EOS_TOKEN_ID:
+                    break
+        translation = []
+        for token in generated_tokens:
+            translation.append(tgt_vocab_reversed[token])
+        return from_tokens_to_text(tokens=translation, params=self.params)
+
+    def evaluate(
+        self: _Transformer,
+        df_test: pd.DataFrame,
+        src_vocab: dict[str, int],
+        tgt_vocab_reversed: dict[str, int],
+    ) -> tuple[dict[str, float], list[str]]:
+        start_time = time.time()
+        list_translations = []
+        list_references = []
+        for srs_sent, tgt_sent in zip(
+            df_test[self.params[names.SRC_LANGUAGE]],
+            df_test[self.params[names.TGT_LANGUAGE]],
+        ):
+            reference = clean_text(text=tgt_sent)
+            translation = self.translate(
+                src_vocab=src_vocab,
+                tgt_vocab_reversed=tgt_vocab_reversed,
+                src_text=srs_sent,
+            )
+            list_references.append(reference)
+            list_translations.append(translation)
+        rouge_1, rouge_l = calculate_metrics(
+            predicted_sentences=list_translations,
+            reference_sentences=list_references,
+        )
+        metrics = {"rouge_1": rouge_1, "rouge_l": rouge_l}
+        print(
+            f"Evaluated successfully. It took {(time.time() - start_time):.2f} seconds"
+        )
+        return metrics, list_translations

@@ -130,6 +130,34 @@ EXPERIMENTS_CONFIGS = {
         names.BETAS: (0.9, 0.98),
         names.EPSILON: 1e-9,
     },
+    5: {
+        names.MODEL_TYPE: names.TRANSFORMER,
+        # TRANSLATION
+        names.SRC_LANGUAGE: "en",
+        names.TGT_LANGUAGE: "fr",
+        names.TOKENIZATION: names.ADVANCED,
+        # ARCHITECTURE
+        names.EMBEDDING_DIMENSION: 64,
+        names.MAX_SEQUENCE_LENGTH: 48,
+        names.MAX_LENGTH_SRC: 32,
+        names.MAX_LENGTH_TGT: 32,
+        names.MAX_CONTEXT_TGT: 8,
+        names.NB_LAYERS: 1,
+        names.NB_HEADS: 4,
+        names.HEAD_OUTPUT_DIMENSION: 64,
+        names.HEAD_SIZE: 16,  # = EMBEDDING_DIMENSION / NB_HEADS
+        names.DROPOUT: 0.1,
+        names.FEEDFORWARD_DIMENSION: 256,
+        names.DEVICE: "cuda",
+        # TRAINING
+        names.NB_EPOCHS: 2,
+        names.LEARNING_RATE: 1e-4,
+        names.BATCH_SIZE: 32,
+        names.NUM_WORKERS: 4,
+        names.BETAS: (0.9, 0.98),
+        names.EPSILON: 1e-9,
+        names.LAMBDA_INIT: 0.8,
+    },
     104: {
         names.MODEL_TYPE: names.DIFF_TRANSFORMER,
         # TRANSLATION
@@ -148,6 +176,34 @@ EXPERIMENTS_CONFIGS = {
         names.DEVICE: "cuda",
         # TRAINING
         names.NB_EPOCHS: 50,
+        names.LEARNING_RATE: 1e-4,
+        names.BATCH_SIZE: 32,
+        names.NUM_WORKERS: 4,
+        names.BETAS: (0.9, 0.98),
+        names.EPSILON: 1e-9,
+        names.LAMBDA_INIT: 0.8,
+    },
+    105: {
+        names.MODEL_TYPE: names.DIFF_TRANSFORMER,
+        # TRANSLATION
+        names.SRC_LANGUAGE: "en",
+        names.TGT_LANGUAGE: "fr",
+        names.TOKENIZATION: names.ADVANCED,
+        # ARCHITECTURE
+        names.EMBEDDING_DIMENSION: 64,
+        names.MAX_SEQUENCE_LENGTH: 48,
+        names.MAX_LENGTH_SRC: 32,
+        names.MAX_LENGTH_TGT: 32,
+        names.MAX_CONTEXT_TGT: 8,
+        names.NB_LAYERS: 1,
+        names.NB_HEADS: 4,
+        names.HEAD_OUTPUT_DIMENSION: 64,
+        names.HEAD_SIZE: 16,  # = EMBEDDING_DIMENSION / NB_HEADS
+        names.DROPOUT: 0.1,
+        names.FEEDFORWARD_DIMENSION: 256,
+        names.DEVICE: "cuda",
+        # TRAINING
+        names.NB_EPOCHS: 2,
         names.LEARNING_RATE: 1e-4,
         names.BATCH_SIZE: 32,
         names.NUM_WORKERS: 4,

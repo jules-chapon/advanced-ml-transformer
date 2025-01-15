@@ -1,12 +1,13 @@
 """Functions to launch training from the command line"""
 
-import sys
 import argparse
+import sys
+
 from typing import Optional
 
-from src.libs.preprocessing import load_data, get_train_valid_test_sets
+from src.libs.preprocessing import load_data
 
-from src.model.experiments import init_pipeline_from_config, load_pipeline_from_config
+from src.model.experiments import init_pipeline_from_config
 
 
 def get_parser(
@@ -27,9 +28,15 @@ def get_parser(
     parser.add_argument(
         "-e", "--exp", nargs="+", type=int, required=True, help="Experiment id"
     )
-    # Load a pretrained pipeline
-    parser.add_argument("--load", action="store_true", help="Load pretrained pipeline")
-    # Local flag
+    # Iteration of the experiment
+    parser.add_argument(
+        "-i",
+        "--iteration",
+        nargs="+",
+        type=int,
+        required=True,
+        help="Iteration of the exepriment",
+    )  # Local flag
     parser.add_argument(
         "--local_data", action="store_true", help="Load data from local filesystem"
     )
@@ -50,26 +57,27 @@ def get_parser(
     return parser
 
 
-def train_main(argv):
+def train_main(argv: argparse.ArgumentParser) -> None:
     """
     Launch training from terminal.
 
     Args:
-        argv (_type_): Parser arguments.
+        argv (argparse.ArgumentParser): Parser arguments.
     """
     parser = get_parser()
     args = parser.parse_args(argv)
     # Load data
-    df = load_data(local=args.local_data, small=False)
-    print("Data loaded successfully")
-    df_train, df_valid, df_test = get_train_valid_test_sets(df=df)
-    for exp in args.exp:
-        print(f"Experiment {exp}")
-        if args.load:
-            pipeline = load_pipeline_from_config(exp)
-        else:
-            pipeline = init_pipeline_from_config(exp)
-        print("Pipeline loaded successfully")
+    df_train = load_data(local=args.local_data, type="samples")
+    print("Training set loaded successfully")
+    df_valid = load_data(local=args.local_data, type="valid")
+    print("Validation set loaded successfully")
+    df_test = load_data(local=args.local_data, type="test")
+    print("Test set loaded successfully")
+    for exp, iter in zip(args.exp, args.iteration):
+        print(f"Experiment {exp} - Iteration {iter}")
+        pipeline = init_pipeline_from_config(
+            id_experiment=int(exp), iteration=int(iter)
+        )
         if args.full:
             pipeline.full_pipeline(
                 df_train=df_train, df_valid=df_valid, df_test=df_test

@@ -30,28 +30,41 @@ class Head(nn.Module):
         self.mask = mask
 
     def forward(
-        self: _Head, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor
+        self: _Head,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        pad_mask: torch.Tensor,
     ) -> torch.Tensor:
-        B, T, C = q.shape
+        B, T_q, C = q.shape
+        _, T_k, _ = k.shape
         # B = batch_size
-        # T = context_length
+        # T_q = context_length of query
+        # T_k = context_length of key and value
         # I = head_input_dimension
         # H = head_size
         # O = head_output_dimension
-        K = self.key(k)  # (B, T, H)
-        Q = self.query(q)  # (B, T, H)
-        V = self.value(v)  # (B, T, O)
-        attention_scores = Q @ K.transpose(1, 2)  # (B, T, H) @ (B, H, T) -> (B, T, T)
+        K = self.key(k)  # (B, T_q, H)
+        Q = self.query(q)  # (B, T_k, H)
+        V = self.value(v)  # (B, T_k, O)
+        attention_scores = Q @ K.transpose(
+            1, 2
+        )  # (B, T_q, H) @ (B, H, T_k) -> (B, T_q, T_k)
         if self.mask:
             masked_attention_scores = attention_scores.masked_fill(
-                self.tril[:T, :T] == 0, float("-inf")
-            )  # (B, T, T)
+                self.tril[:T_q, :T_k] == 0, 1e-9
+            )  # (B, T_q, T_k)
         else:
-            masked_attention_scores = attention_scores  # (B, T, T)
+            masked_attention_scores = attention_scores  # (B, T_q, T_k)
+        masked_attention_scores = masked_attention_scores.masked_fill(
+            pad_mask.unsqueeze(2).expand(-1, -1, T_k) == 1, 1e-9
+        )  # (B, T_q, T_k)
         attention_weights = torch.softmax(
             masked_attention_scores * self.head_size**-0.5, dim=-1
-        )  # (B, T, T)
-        context_vectors = attention_weights @ V  # (B, T, T) @ (B, T, O) -> (B, T, O)
+        )  # (B, T_q, T_k)
+        context_vectors = (
+            attention_weights @ V
+        )  # (B, T_q, T_k) @ (B, T_k, O) -> (B, T_q, O)
         return context_vectors
 
 
@@ -84,13 +97,19 @@ class MultiHeadAttention(nn.Module):
         self.proj = nn.Linear(num_heads * head_output_dimension, embedding_dimension)
 
     def forward(
-        self: _MultiHeadAttention, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor
+        self: _MultiHeadAttention,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        pad_mask: torch.Tensor,
     ):
         # q, k, v : (B, T, C)
         # B = batch_size
         # T = context_length
         # C = embedding_dimension
-        out = torch.cat([h(q=q, k=k, v=v) for h in self.heads], dim=-1)
+        out = torch.cat(
+            [h(q=q, k=k, v=v, pad_mask=pad_mask) for h in self.heads], dim=-1
+        )
         out = self.proj(out)
         return out  # Output : (B, T, C)
 

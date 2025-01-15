@@ -77,10 +77,10 @@ def init_parser(
 def prepare_notebook(
     output_nb_path: str,
     exp: int,
+    iteration: int,
     branch: str,
     git_user: str = None,
     git_repo: str = None,
-    load: str = "false",
     pipeline: str = "full",
     template_nb_path: str = os.path.join(
         constants.REMOTE_TRAINING_FOLDER, "remote_training.ipynb"
@@ -94,10 +94,10 @@ def prepare_notebook(
     Args:
         output_nb_path (str): Output path.
         exp (int): Experiment.
+        iteration (int): Iteration.
         branch (str): Git branch.
         git_user (str, optional): Git username. Defaults to None.
         git_repo (str, optional): Git repository. Defaults to None.
-        load (str, optional): Load pretrained model. Defaults to "false".
         pipeline (str, optional): Pipeline to run. Defaults to "full".
         template_nb_path (str, optional): Jupyter notebook template.
             Defaults to os.path.join( constants.REMOTE_TRAINING_FOLDER, "remote_training.ipynb" ).
@@ -108,10 +108,10 @@ def prepare_notebook(
     assert git_repo is not None, "Please provide a git repo name for the repo"
     expressions = [
         ("exp", f"{exp}"),
+        ("iteration", f"{iteration}"),
         ("branch", f"'{branch}'"),
         ("git_user", f"'{git_user}'"),
         ("git_repo", f"'{git_repo}'"),
-        ("load", f"'{load}'"),
         ("pipeline", f"'{pipeline}'"),
         ("output_dir", "None" if output_dir is None else f"'{output_dir}'"),
         ("dataset_files", "None" if dataset_files is None else f"{dataset_files}"),
@@ -156,7 +156,6 @@ def define_config(
         "enable_gpu": "true" if not args.cpu else "false",
         "enable_tpu": "false",
         "enable_internet": "true",
-        "load": "true" if args.load else "false",
         "full_pipeline": "true" if args.full else "false",
         "learning_pipeline": "true" if args.learning else "false",
         "testing_pipeline": "true" if args.testing else "false",
@@ -181,10 +180,7 @@ def main(argv):
     args = parser.parse_args(argv)
     notebook_id = args.notebook_id
     exp_str = "_".join(f"{exp:05d}" for exp in args.exp)
-    if args.load:
-        load = "true"
-    else:
-        load = "false"
+    iteration_str = "_".join(f"{iteration:05d}" for iteration in args.iteration)
     if args.full:
         pipeline = "full"
     elif args.learning:
@@ -198,7 +194,7 @@ def main(argv):
     kaggle.api._load_config(kaggle_user)
     # If needed, download results
     if args.download:
-        tmp_dir = f"__tmp_{exp_str}"
+        tmp_dir = f"__tmp_{exp_str}_{iteration_str}"
         os.makedirs(tmp_dir, exist_ok=True)
         kaggle.api.kernels_output_cli(
             f"{kaggle_user['username']}/{notebook_id}", path=str(tmp_dir)
@@ -217,10 +213,10 @@ def main(argv):
     prepare_notebook(
         f"{kernel_path}/{notebook_id}" + ".ipynb",
         args.exp,
+        args.iteration,
         branch,
         git_user=constants.GIT_USER,
         git_repo=constants.GIT_REPO,
-        load=load,
         pipeline=pipeline,
     )
     assert os.path.exists(f"{kernel_path}/{notebook_id}" + ".ipynb")

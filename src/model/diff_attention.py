@@ -35,36 +35,48 @@ class DiffHead(nn.Module):
         self.mask = mask
 
     def forward(
-        self: _DiffHead, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor
+        self: _DiffHead,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        pad_mask: torch.Tensor,
     ) -> torch.Tensor:
-        B, T, C = q.shape
+        B, T_q, C = q.shape
+        _, T_k, _ = k.shape
         # B = batch_size
-        # T = context_length
+        # T_q = context_length of query
+        # T_k = context_length of key and value
         # I = head_input_dimension
         # H = head_size
         # O = head_output_dimension
-        Q = self.query(q)  # (B, T, 2H)
-        K = self.key(k)  # (B, T, 2H)
+        Q = self.query(q)  # (B, T_q, 2H)
+        K = self.key(k)  # (B, T_k, 2H)
         V = self.value(v)  # (B, T, O)
-        Q1, Q2 = Q.chunk(2, dim=-1)  # (B, T, H), (B, T, H)
-        K1, K2 = K.chunk(2, dim=-1)  # (B, T, H), (B, T, H)
-        V = self.value(v)  # (B, T, O)
+        Q1, Q2 = Q.chunk(2, dim=-1)  # (B, T_q, H), (B, T_q, H)
+        K1, K2 = K.chunk(2, dim=-1)  # (B, T_k, H), (B, T_k, H)
+        V = self.value(v)  # (B, T_k, O)
         attention_scores_1 = Q1 @ K1.transpose(
             1, 2
-        )  # (B, T, 2H) @ (B, 2H, T) -> (B, T, T)
+        )  # (B, T_q, 2H) @ (B, 2H, T_k) -> (B, T_q, T_k)
         attention_scores_2 = Q2 @ K2.transpose(
             1, 2
-        )  # (B, T, 2H) @ (B, 2H, T) -> (B, T, T)
+        )  # (B, T_q, 2H) @ (B, 2H, T_k) -> (B, T_q, T_k)
         if self.mask:
             masked_attention_scores_1 = attention_scores_1.masked_fill(
-                self.tril[:T, :T] == 0, float("-inf")
-            )  # (B, T, T)
+                self.tril[:T_q, :T_k] == 0, 1e-9
+            )  # (B, T_q, T_k)
             masked_attention_scores_2 = attention_scores_2.masked_fill(
-                self.tril[:T, :T] == 0, float("-inf")
-            )  # (B, T, T)
+                self.tril[:T_q, :T_k] == 0, 1e-9
+            )  # (B, T_q, T_k)
         else:
-            masked_attention_scores_1 = attention_scores_1  # (B, T, T)
-            masked_attention_scores_2 = attention_scores_2  # (B, T, T)
+            masked_attention_scores_1 = attention_scores_1  # (B, T_q, T_k)
+            masked_attention_scores_2 = attention_scores_2  # (B, T_q, T_k)
+        masked_attention_scores_1 = masked_attention_scores_1.masked_fill(
+            pad_mask.unsqueeze(2).expand(-1, -1, T_k) == 1, 1e-9
+        )  # (B, T_q, T_k)
+        masked_attention_scores_2 = masked_attention_scores_2.masked_fill(
+            pad_mask.unsqueeze(2).expand(-1, -1, T_k) == 1, 1e-9
+        )  # (B, T_q, T_k)
         lbd = (
             torch.exp(torch.dot(self.lambda_q1, self.lambda_k1))
             - torch.exp(torch.dot(self.lambda_q2, self.lambda_k2))
@@ -74,8 +86,10 @@ class DiffHead(nn.Module):
             masked_attention_scores_1 * self.head_size**-0.5, dim=-1
         ) - lbd * torch.softmax(
             masked_attention_scores_2 * self.head_size**-0.5, dim=-1
-        )  # (B, T, T)
-        context_vectors = attention_weights @ V  # (B, T, T) @ (B, T, O) -> (B, T, O)
+        )  # (B, T_q, T_k)
+        context_vectors = (
+            attention_weights @ V
+        )  # (B, T_q, T_k) @ (B, T_k, O) -> (B, T_q, O)
         return context_vectors
 
 
@@ -113,14 +127,22 @@ class MultiDiffHeadAttention(nn.Module):
         self.lambda_init = lambda_init
 
     def forward(
-        self: _MultiDiffHeadAttention, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor
+        self: _MultiDiffHeadAttention,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        pad_mask: torch.Tensor,
     ):
         # q, k, v : (B, T, C)
         # B = batch_size
         # T = context_length
         # C = embedding_dimension
         out = torch.cat(
-            [(1 - self.lambda_init) * h(q=q, k=k, v=v) for h in self.heads], dim=-1
+            [
+                (1 - self.lambda_init) * h(q=q, k=k, v=v, pad_mask=pad_mask)
+                for h in self.heads
+            ],
+            dim=-1,
         )
         out = self.proj(out)
         return out  # Output : (B, T, C)

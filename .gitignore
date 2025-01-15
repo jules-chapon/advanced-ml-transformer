@@ -1,6 +1,7 @@
 *.csv
+*.parquet
 *.npy
-*.pkl
+#*.pkl
 *__nb*
 
 # Byte-compiled / optimized / DLL files
