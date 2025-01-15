@@ -209,6 +209,14 @@ class TransformerPipeline(Pipeline):
             file_id = "150LkrEMbB_mdvQp7ernYj1HrynsqgFex"
         elif self.params[names.MODEL_TYPE] == names.DIFF_TRANSFORMER:
             file_id = "150LkrEMbB_mdvQp7ernYj1HrynsqgFex"
+        os.makedirs(
+            os.path.join(
+                constants.OUTPUT_FOLDER,
+                f"{self.params[names.MODEL_TYPE]}_{self.id_experiment}_{self.iteration-1}",
+                "training",
+            ),
+            exist_ok=True,
+        )
         gdown.download(
             f"https://drive.google.com/uc?id={file_id}",
             os.path.join(
@@ -235,7 +243,6 @@ class TransformerPipeline(Pipeline):
         print(
             f"Model {self.params[names.MODEL_TYPE]} number {self.iteration-1} of experiment {self.id_experiment} loaded successfully"
         )
-        return pipeline
 
 
 def move_to_cpu(obj):
@@ -257,7 +264,7 @@ if __name__ == "__main__":
     # df_test = load_data_from_local(type="test")
     # df = pd.concat([df_train, df_valid, df_test])
     # print(df.shape)
-    id_experiment = 5
+    id_experiment = 7
     iteration = 1
     obj = TransformerPipeline(id_experiment=id_experiment, iteration=iteration)
     obj.load()
