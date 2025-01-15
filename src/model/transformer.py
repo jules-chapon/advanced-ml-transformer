@@ -265,9 +265,8 @@ class Transformer(torch.nn.Module):
             valid_loss /= len(valid_dataloader)
             train_loss_history.append(train_loss)
             valid_loss_history.append(valid_loss)
-            if epoch % (1 + self.params[names.NB_EPOCHS] // 1) == 0:
-                print(f"Epoch {epoch+1} / {self.params[names.NB_EPOCHS]} -------------")
-                print(f"Train loss : {train_loss:.4f}. Valid loss : {valid_loss:.4f}.")
+            print(f"Epoch {epoch+1} / {self.params[names.NB_EPOCHS]} -------------")
+            print(f"Train loss : {train_loss:.4f}. Valid loss : {valid_loss:.4f}.")
         print(
             f"Trained successfully. It took {time.time() - start_training:.2f} seconds. \n"
         )
@@ -288,10 +287,16 @@ class Transformer(torch.nn.Module):
                 src_tokens += [constants.PAD_TOKEN_ID] * (
                     self.params[names.MAX_LENGTH_SRC] - len(src_tokens)
                 )
-            src_tensor = torch.tensor(
-                src_tokens[: self.params[names.MAX_LENGTH_SRC]]
-            ).unsqueeze(0)  # (1, T)
-            tgt_tensor = torch.tensor([constants.BOS_TOKEN_ID]).unsqueeze(0)  # (1, 1)
+            src_tensor = (
+                torch.tensor(src_tokens[: self.params[names.MAX_LENGTH_SRC]])
+                .unsqueeze(0)
+                .to(self.params[names.DEVICE])
+            )  # (1, T)
+            tgt_tensor = (
+                torch.tensor([constants.BOS_TOKEN_ID])
+                .unsqueeze(0)
+                .to(self.params[names.DEVICE])
+            )  # (1, 1)
             generated_tokens = [constants.BOS_TOKEN_ID]
             for _ in range(self.params[names.MAX_LENGTH_TGT]):
                 logits = self(
