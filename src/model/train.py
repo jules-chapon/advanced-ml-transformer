@@ -67,7 +67,7 @@ def train_main(argv: argparse.ArgumentParser) -> None:
     parser = get_parser()
     args = parser.parse_args(argv)
     # Load data
-    df_train = load_data(local=args.local_data, type="samples")
+    df_train = load_data(local=args.local_data, type="train")
     print("Training set loaded successfully")
     df_valid = load_data(local=args.local_data, type="valid")
     print("Validation set loaded successfully")
