@@ -239,7 +239,7 @@ EXPERIMENTS_CONFIGS = {
         names.LAMBDA_INIT: 0.8,
     },
     107: {
-        names.MODEL_TYPE: names.TRANSFORMER,
+        names.MODEL_TYPE: names.DIFF_TRANSFORMER,
         # TRANSLATION
         names.SRC_LANGUAGE: "en",
         names.TGT_LANGUAGE: "fr",

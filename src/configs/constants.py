@@ -32,6 +32,8 @@ HF_VALID_FILENAME = "jules-chapon/advanced-ml-valid"
 HF_TEST_FILENAME = "jules-chapon/advanced-ml-test"
 HF_SAMPLES_FILENAME = "jules-chapon/advanced-ml-transformer-small"
 
+GOOGLE_DRIVE = "https://drive.google.com/drive/folders/1uaAX5emzF4pi0JGhHy3RgaMMjr6x_wrM?usp=sharing"
+
 
 ###############################################################
 #                                                             #

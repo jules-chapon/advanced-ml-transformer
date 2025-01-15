@@ -1,5 +1,6 @@
 """Pipeline for Transformer model"""
 
+import gdown
 import numpy as np
 import os
 import pandas as pd
@@ -21,7 +22,6 @@ from src.model.diff_transformer import DiffTransformer
 from src.model.pipeline import Pipeline
 
 from src.libs.preprocessing import (
-    load_data_from_local,
     create_vocabs,
     tokenize_dataframe,
 )
@@ -205,6 +205,20 @@ class TransformerPipeline(Pipeline):
         print("Translations saved successfully")
 
     def load(self: _TransformerPipeline) -> _TransformerPipeline:
+        if self.params[names.MODEL_TYPE] == names.TRANSFORMER:
+            file_id = "150LkrEMbB_mdvQp7ernYj1HrynsqgFex"
+        elif self.params[names.MODEL_TYPE] == names.DIFF_TRANSFORMER:
+            file_id = "150LkrEMbB_mdvQp7ernYj1HrynsqgFex"
+        gdown.download(
+            f"https://drive.google.com/uc?id={file_id}",
+            os.path.join(
+                constants.OUTPUT_FOLDER,
+                f"{self.params[names.MODEL_TYPE]}_{self.id_experiment}_{self.iteration-1}",
+                "training",
+                "pipeline.pkl",
+            ),
+            quiet=False,
+        )
         path = os.path.join(
             constants.OUTPUT_FOLDER,
             f"{self.params[names.MODEL_TYPE]}_{self.id_experiment}_{self.iteration-1}",
@@ -238,14 +252,15 @@ def move_to_cpu(obj):
 
 
 if __name__ == "__main__":
-    df_train = load_data_from_local(type="samples")
-    df_valid = load_data_from_local(type="samples")
-    df_test = load_data_from_local(type="test")
-    df = pd.concat([df_train, df_valid, df_test])
-    print(df.shape)
-    id_experiment = 105
-    iteration = 0
+    # df_train = load_data_from_local(type="samples")
+    # df_valid = load_data_from_local(type="samples")
+    # df_test = load_data_from_local(type="test")
+    # df = pd.concat([df_train, df_valid, df_test])
+    # print(df.shape)
+    id_experiment = 5
+    iteration = 1
     obj = TransformerPipeline(id_experiment=id_experiment, iteration=iteration)
+    obj.load()
     # obj.get_vocabs(df=pd.concat([df_train, df_valid, df_test]))
     # train_dataloader, valid_dataloader = obj.preprocess_data(
     #     df_train=df_train, df_valid=df_valid
@@ -267,4 +282,4 @@ if __name__ == "__main__":
     #     logits.view(B * T, self.params[names.TGT_VOCAB_SIZE]),
     #     tgt_output.view(B * T),
     # )
-    obj.full_pipeline(df_train=df_train, df_valid=df_valid, df_test=df_test)
+    # obj.full_pipeline(df_train=df_train, df_valid=df_valid, df_test=df_test)

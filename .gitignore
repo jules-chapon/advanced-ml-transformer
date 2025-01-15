@@ -1,7 +1,7 @@
 *.csv
 *.parquet
 *.npy
-#*.pkl
+*.pkl
 *__nb*
 
 __tmp*
