@@ -219,7 +219,7 @@ class TransformerPipeline(Pipeline):
         self.tgt_vocab_reversed = pipeline.tgt_vocab_reversed
         self.model = pipeline.model.to(self.params[names.DEVICE])
         print(
-            f"Model {self.params[names.MODEL_TYPE]} number {self.iteration-1} of experiment {id_experiment} loaded successfully"
+            f"Model {self.params[names.MODEL_TYPE]} number {self.iteration-1} of experiment {self.id_experiment} loaded successfully"
         )
         return pipeline
 
