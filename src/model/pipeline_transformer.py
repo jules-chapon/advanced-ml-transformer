@@ -206,9 +206,9 @@ class TransformerPipeline(Pipeline):
 
     def load(self: _TransformerPipeline) -> _TransformerPipeline:
         if self.params[names.MODEL_TYPE] == names.TRANSFORMER:
-            file_id = "1ZQqoRPbvHCP4dY6N2JmWO36vxQ1XSiEy"
+            file_id = "1dhsO2XsoBOSzO36_3VrUMdSxFQgNGIlQ"
         elif self.params[names.MODEL_TYPE] == names.DIFF_TRANSFORMER:
-            file_id = "1VuxzypddK-dtUqwAEPvgcQqD13i6MjYz"
+            file_id = "1P-8pz3OYpTUfXu_SgXqJVyGtfRazfPPx"
         os.makedirs(
             os.path.join(
                 constants.OUTPUT_FOLDER,
