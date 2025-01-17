@@ -8,7 +8,6 @@ import shutil
 import sys
 import subprocess
 from remote_training.__kaggle_login import kaggle_users
-from remote_training import config
 from src.configs import constants
 from src.model.train import get_parser
 from typing import Optional
@@ -54,7 +53,7 @@ def init_parser(
         "--notebook_id",
         type=str,
         help="Notebook name in kaggle",
-        default=config.NOTEBOOK_ID,
+        default=constants.NOTEBOOK_ID,
     )
     # User flag
     parser.add_argument(
@@ -78,11 +77,13 @@ def init_parser(
 def prepare_notebook(
     output_nb_path: str,
     exp: int,
+    iteration: int,
     branch: str,
     git_user: str = None,
     git_repo: str = None,
+    pipeline: str = "full",
     template_nb_path: str = os.path.join(
-        config.REMOTE_TRAINING_FOLDER, "remote_training.ipynb"
+        constants.REMOTE_TRAINING_FOLDER, "remote_training.ipynb"
     ),
     output_dir: str = constants.OUTPUT_FOLDER,
     dataset_files: Optional[list] = None,
@@ -93,11 +94,13 @@ def prepare_notebook(
     Args:
         output_nb_path (str): Output path.
         exp (int): Experiment.
+        iteration (int): Iteration.
         branch (str): Git branch.
         git_user (str, optional): Git username. Defaults to None.
         git_repo (str, optional): Git repository. Defaults to None.
+        pipeline (str, optional): Pipeline to run. Defaults to "full".
         template_nb_path (str, optional): Jupyter notebook template.
-            Defaults to os.path.join( config.REMOTE_TRAINING_FOLDER, "remote_training.ipynb" ).
+            Defaults to os.path.join( constants.REMOTE_TRAINING_FOLDER, "remote_training.ipynb" ).
         output_dir (str, optional): Output directory. Defaults to constants.OUTPUT_FOLDER.
         dataset_files (Optional[list], optional): Kaglle datasets. Defaults to None.
     """
@@ -105,9 +108,11 @@ def prepare_notebook(
     assert git_repo is not None, "Please provide a git repo name for the repo"
     expressions = [
         ("exp", f"{exp}"),
+        ("iteration", f"{iteration}"),
         ("branch", f"'{branch}'"),
         ("git_user", f"'{git_user}'"),
         ("git_repo", f"'{git_repo}'"),
+        ("pipeline", f"'{pipeline}'"),
         ("output_dir", "None" if output_dir is None else f"'{output_dir}'"),
         ("dataset_files", "None" if dataset_files is None else f"{dataset_files}"),
     ]
@@ -151,10 +156,10 @@ def define_config(
         "enable_gpu": "true" if not args.cpu else "false",
         "enable_tpu": "false",
         "enable_internet": "true",
-        "full_pipeline": "ture" if args.full else "false",
-        "learning_pipeline": "ture" if args.learning else "false",
-        "testing_pipeline": "ture" if args.testing else "false",
-        "dataset_sources": config.KAGGLE_DATASET_LIST,
+        "full_pipeline": "true" if args.full else "false",
+        "learning_pipeline": "true" if args.learning else "false",
+        "testing_pipeline": "true" if args.testing else "false",
+        "dataset_sources": constants.KAGGLE_DATASET_LIST,
         "competition_sources": [],
         "kernel_sources": [],
         "model_sources": [],
@@ -175,12 +180,21 @@ def main(argv):
     args = parser.parse_args(argv)
     notebook_id = args.notebook_id
     exp_str = "_".join(f"{exp:05d}" for exp in args.exp)
+    iteration_str = "_".join(f"{iteration:05d}" for iteration in args.iteration)
+    if args.full:
+        pipeline = "full"
+    elif args.learning:
+        pipeline = "learning"
+    elif args.testing:
+        pipeline = "testing"
+    else:
+        raise NotImplementedError
     kaggle_user = kaggle_users[args.user]
     uname_kaggle = kaggle_user["username"]
     kaggle.api._load_config(kaggle_user)
     # If needed, download results
     if args.download:
-        tmp_dir = f"__tmp_{exp_str}"
+        tmp_dir = f"__tmp_{exp_str}_{iteration_str}"
         os.makedirs(tmp_dir, exist_ok=True)
         kaggle.api.kernels_output_cli(
             f"{kaggle_user['username']}/{notebook_id}", path=str(tmp_dir)
@@ -199,9 +213,11 @@ def main(argv):
     prepare_notebook(
         f"{kernel_path}/{notebook_id}" + ".ipynb",
         args.exp,
+        args.iteration,
         branch,
-        git_user=config.GIT_USER,
-        git_repo=config.GIT_REPO,
+        git_user=constants.GIT_USER,
+        git_repo=constants.GIT_REPO,
+        pipeline=pipeline,
     )
     assert os.path.exists(f"{kernel_path}/{notebook_id}" + ".ipynb")
     with open(f"{kernel_path}/kernel-metadata.json", "w") as f:

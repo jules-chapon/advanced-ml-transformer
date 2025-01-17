@@ -1,13 +1,13 @@
 """Functions to launch training from the command line"""
 
-import sys
 import argparse
+import sys
+
 from typing import Optional
-import logging
 
 from src.libs.preprocessing import load_data
 
-from src.model.experiments import init_model_from_config
+from src.model.experiments import init_pipeline_from_config
 
 
 def get_parser(
@@ -28,8 +28,15 @@ def get_parser(
     parser.add_argument(
         "-e", "--exp", nargs="+", type=int, required=True, help="Experiment id"
     )
-
-    # Local flag
+    # Iteration of the experiment
+    parser.add_argument(
+        "-i",
+        "--iteration",
+        nargs="+",
+        type=int,
+        required=True,
+        help="Iteration of the exepriment",
+    )  # Local flag
     parser.add_argument(
         "--local_data", action="store_true", help="Load data from local filesystem"
     )
@@ -50,27 +57,39 @@ def get_parser(
     return parser
 
 
-def train_main(argv):
+def train_main(argv: argparse.ArgumentParser) -> None:
     """
     Launch training from terminal.
 
     Args:
-        argv (_type_): Parser arguments.
+        argv (argparse.ArgumentParser): Parser arguments.
     """
     parser = get_parser()
     args = parser.parse_args(argv)
     # Load data
-    df_learning = load_data(is_train=True, is_local=args.local_data)
-    df_testing = load_data(is_train=False, is_local=args.local_data)
-    for exp in args.exp:
-        model = init_model_from_config(exp)
-        logging.info(f"Training experiment { exp }")
+    df_train = load_data(local=args.local_data, type="train")
+    print("Training set loaded successfully")
+    df_valid = load_data(local=args.local_data, type="valid")
+    print("Validation set loaded successfully")
+    df_test = load_data(local=args.local_data, type="test")
+    print("Test set loaded successfully")
+    for exp, iter in zip(args.exp, args.iteration):
+        print(f"Experiment {exp} - Iteration {iter}")
+        pipeline = init_pipeline_from_config(
+            id_experiment=int(exp), iteration=int(iter)
+        )
         if args.full:
-            model.full_pipeline(df_learning=df_learning, df_testing=df_testing)
+            pipeline.full_pipeline(
+                df_train=df_train, df_valid=df_valid, df_test=df_test
+            )
         elif args.learning:
-            model.learning_pipeline(df_learning=df_learning)
+            pipeline.learning_pipeline(
+                df_train=df_train, df_valid=df_valid, df_test=df_test
+            )
         elif args.testing:
-            model.testing_pipeline(df_learning=df_learning, df_testing=df_testing)
+            pipeline.testing_pipeline(
+                df_train=df_train, df_valid=df_valid, df_test=df_test
+            )
 
 
 if __name__ == "__main__":

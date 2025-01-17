@@ -1,15 +1,7 @@
 """Parameters for ML models"""
 
-from src.configs import constants, names
+from src.configs import names
 
-
-###############################################################
-#                                                             #
-#                           CONSTANTS                         #
-#                                                             #
-###############################################################
-
-NB_OPTUNA_TRIALS = 3
 
 ###############################################################
 #                                                             #
@@ -18,33 +10,108 @@ NB_OPTUNA_TRIALS = 3
 ###############################################################
 
 EXPERIMENTS_CONFIGS = {
-    0: {
-        names.MODEL_TYPE: names.MODEL,
-        "train_ratio": 0.8,
-        "feature_selection": None,
-        names.TARGET: names.TARGET,
-        "features": None,
-        "cols_id": "id",
-        "cross_validation": 3,
-        "fine_tuning": False,
-        "training_params": {
-            "objective": "binary",
-            "metrics": ["binary_logloss", "auc"],
-            "random_seed": constants.RANDOM_SEED,
-            "verbose": -1,
-            "n_estimators": 10,
-            "early_stopping_rounds": 9,
-            "learning_rate": 0.1,
-            "max_depth": 15,
-            "max_leaves": 31,
-            "min_data_per_leaf": 20,
-            "bagging_fraction": 0.8,
-            "bagging_freq": 5,
-            "feature_fraction": 0.8,
-            "lambda_l1": 0.1,
-        },
+    4: {
+        names.MODEL_TYPE: names.TRANSFORMER,
+        # TRANSLATION
+        names.SRC_LANGUAGE: "en",
+        names.TGT_LANGUAGE: "fr",
+        # ARCHITECTURE
+        names.EMBEDDING_DIMENSION: 96,
+        names.MAX_LENGTH_SRC: 32,
+        names.MAX_LENGTH_TGT: 32,
+        names.MAX_CONTEXT_TGT: 32,
+        names.NB_LAYERS: 3,
+        names.NB_HEADS: 6,
+        names.HEAD_OUTPUT_DIMENSION: 64,
+        names.HEAD_SIZE: 16,  # = EMBEDDING_DIMENSION / NB_HEADS
+        names.DROPOUT: 0.1,
+        names.FEEDFORWARD_DIMENSION: 128,
+        names.DEVICE: "cuda",
+        # TRAINING
+        names.NB_EPOCHS: 50,
+        names.LEARNING_RATE: 1e-4,
+        names.BATCH_SIZE: 32,
+        names.NUM_WORKERS: 4,
+        names.BETAS: (0.9, 0.98),
+        names.EPSILON: 1e-9,
     },
-    1: {},
-    2: {},
+    7: {
+        names.MODEL_TYPE: names.TRANSFORMER,
+        # TRANSLATION
+        names.SRC_LANGUAGE: "en",
+        names.TGT_LANGUAGE: "fr",
+        # ARCHITECTURE
+        names.EMBEDDING_DIMENSION: 64,
+        names.MAX_LENGTH_SRC: 32,
+        names.MAX_LENGTH_TGT: 32,
+        names.MAX_CONTEXT_TGT: 8,
+        names.NB_LAYERS: 4,
+        names.NB_HEADS: 4,
+        names.HEAD_OUTPUT_DIMENSION: 64,
+        names.HEAD_SIZE: 16,  # = EMBEDDING_DIMENSION / NB_HEADS
+        names.DROPOUT: 0.1,
+        names.FEEDFORWARD_DIMENSION: 256,
+        names.DEVICE: "cuda",
+        # TRAINING
+        names.NB_EPOCHS: 2,
+        names.LEARNING_RATE: 1e-4,
+        names.BATCH_SIZE: 32,
+        names.NUM_WORKERS: 4,
+        names.BETAS: (0.9, 0.98),
+        names.EPSILON: 1e-9,
+        names.LAMBDA_INIT: 0.8,
+    },
+    104: {
+        names.MODEL_TYPE: names.DIFF_TRANSFORMER,
+        # TRANSLATION
+        names.SRC_LANGUAGE: "en",
+        names.TGT_LANGUAGE: "fr",
+        # ARCHITECTURE
+        names.EMBEDDING_DIMENSION: 96,
+        names.MAX_LENGTH_SRC: 32,
+        names.MAX_LENGTH_TGT: 32,
+        names.MAX_CONTEXT_TGT: 32,
+        names.NB_LAYERS: 3,
+        names.NB_HEADS: 6,
+        names.HEAD_OUTPUT_DIMENSION: 64,
+        names.HEAD_SIZE: 16,  # = EMBEDDING_DIMENSION / NB_HEADS
+        names.DROPOUT: 0.1,
+        names.FEEDFORWARD_DIMENSION: 128,
+        names.DEVICE: "cuda",
+        # TRAINING
+        names.NB_EPOCHS: 50,
+        names.LEARNING_RATE: 1e-4,
+        names.BATCH_SIZE: 32,
+        names.NUM_WORKERS: 4,
+        names.BETAS: (0.9, 0.98),
+        names.EPSILON: 1e-9,
+        names.LAMBDA_INIT: 0.8,
+    },
+    107: {
+        names.MODEL_TYPE: names.DIFF_TRANSFORMER,
+        # TRANSLATION
+        names.SRC_LANGUAGE: "en",
+        names.TGT_LANGUAGE: "fr",
+        # ARCHITECTURE
+        names.EMBEDDING_DIMENSION: 64,
+        names.MAX_LENGTH_SRC: 32,
+        names.MAX_LENGTH_TGT: 32,
+        names.MAX_CONTEXT_TGT: 8,
+        names.NB_LAYERS: 4,
+        names.NB_HEADS: 4,
+        names.HEAD_OUTPUT_DIMENSION: 64,
+        names.HEAD_SIZE: 16,  # = EMBEDDING_DIMENSION / NB_HEADS
+        names.DROPOUT: 0.1,
+        names.FEEDFORWARD_DIMENSION: 256,
+        names.DEVICE: "cuda",
+        # TRAINING
+        names.NB_EPOCHS: 2,
+        names.LEARNING_RATE: 1e-4,
+        names.BATCH_SIZE: 32,
+        names.NUM_WORKERS: 4,
+        names.BETAS: (0.9, 0.98),
+        names.EPSILON: 1e-9,
+        names.LAMBDA_INIT: 0.8,
+    },
     # Add more experiments as needed
 }
