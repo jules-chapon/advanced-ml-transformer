@@ -208,7 +208,7 @@ class TransformerPipeline(Pipeline):
         if self.params[names.MODEL_TYPE] == names.TRANSFORMER:
             file_id = "1dhsO2XsoBOSzO36_3VrUMdSxFQgNGIlQ"
         elif self.params[names.MODEL_TYPE] == names.DIFF_TRANSFORMER:
-            file_id = "1P-8pz3OYpTUfXu_SgXqJVyGtfRazfPPx"
+            file_id = "1WPMhTzCaIRCOJF6M-Bu8GxCrCqkGzPfR"
         os.makedirs(
             os.path.join(
                 constants.OUTPUT_FOLDER,
