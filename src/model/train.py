@@ -36,7 +36,12 @@ def get_parser(
         type=int,
         required=True,
         help="Iteration of the exepriment",
-    )  # Local flag
+    )
+    # Local data
+    parser.add_argument(
+        "--samples", action="store_true", help="Load samples or the full training set"
+    )
+    # Local data
     parser.add_argument(
         "--local_data", action="store_true", help="Load data from local filesystem"
     )
@@ -67,9 +72,12 @@ def train_main(argv: argparse.ArgumentParser) -> None:
     parser = get_parser()
     args = parser.parse_args(argv)
     # Load data
-    df_train = load_data(local=args.local_data, type="train")
+    if args.samples:
+        df_train = load_data(local=args.local_data, type="samples")
+    else:
+        df_train = load_data(local=args.local_data, type="train")
     print("Training set loaded successfully")
-    df_valid = load_data(local=args.local_data, type="valid")
+    df_valid = load_data(local=args.local_data, type="validation")
     print("Validation set loaded successfully")
     df_test = load_data(local=args.local_data, type="test")
     print("Test set loaded successfully")

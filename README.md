@@ -9,7 +9,9 @@
 
 ## Description
 
-Description.
+This repository contains the code for our project in **Advanced machine Learning** during our final Master's year at ENSAE Paris.
+
+We developped both a Transformer and a Differential Transformer, and compared them on a translation task.
 
 ## How to use this repo
 
@@ -57,100 +59,28 @@ uv pip install -r pyproject.toml
 
 ```
 
-### Update dependencies
 
-You can add/delete/update packages directly in the *pyproject.toml* file.
-Once done, you must update the *poetry.lock* file.
-To do so, run the following command in your terminal (make sure poetry is installed) :
+### Run the pipeline in local
 
-```bash
 
-poetry lock
-
-```
-
-Now, you can install the new packages.
-To do so, you can refer to the previous part of the documentation.
-
-### Run the pipeline
-
-This is based on the work done by Balthazar Neveu in this repo : https://github.com/balthazarneveu/mva_pepites.
-
-#### Local
-
-To run the full pipeline of experiments 0, 1 and 2 on your own computer, with data loaded from your computer, you can run the following command in your terminal :
+To run the full pipeline on your own computer, you can run the following command in your terminal :
 
 ```bash
 
-python -m src.model.train -e 0 1 2 --local_data --full
+python -m src.model.train -e 0 100 -i 0 0 --samples --full
 
 ```
 
-If you want to load data from other sources (Hugging Face, Kaggle...), you can run the previous command without the ``` --local_data ``` argument :
-
-```bash
-
-python -m src.model.train -e 0 1 2 --full
-
-```
-
-If needed, you can run only the learning or the testing parts of the pipeline by changing the ``` --full ``` argument and running one of the following commands :
-
-```bash
-
-python -m src.model.train -e 0 1 2 --learning
-
-```
-
-```bash
-
-python -m src.model.train -e 0 1 2 --testing
-
-```
-
-#### Kaggle
-
-To run the pipeline on a Kaggle Notebook, you first need to create a file *__kaggle_login.py* in the folder **remote_training**. This file must contain the following code :
-
-```bash
-
-kaggle_users = {
-    "user1": {
-        "username": <your_username>,
-        "key": <your_kaggle_key>}
-}
-
-```
-
-Once done, you need to run the following command in your terminal :
-
-```bash
-
-python -m remote_training.remote_training -u user1 -e 0 1 2 -b branch_name --full -p
-
-```
-
-If you want to execute the code present in your *main* branch, you can forget the ``` -b ``` argument. If you want to force the use of CPU, you can add the ``` --cpu ``` argument. This will give you the following command :
-
-```bash
-
-python -m remote_training.remote_training -u user1 -e 0 1 2 --cpu --full -p
-
-```
-
-If you want to execute specific parts of the code (learning, testing...), this works as mentionned above.
-
-If you want to download the output, you can do it via the Kaggle interface or by modifying the ``` -p ``` argument and running the following command in your terminal :
-
-```bash
-
-python -m remote_training.remote_training -u user1 -d
-
-```
-
-Sometimes, you can obtain errors while trying to execute the code in a Kaggle notebook. You might delete the notebook on Kaggle website and try again.
-
+Do not forget the ```--samples``` part as it loads only 1,000 samples in the training set (rather than 1,000,000 which is really heavy for a laptop). This command will train both models (they have the same parameters as the ones we trained) for 2 epochs, and the results will be available in the **output** folder.
 
 ## Project Documentation
 
-Explain process and code.
+The folder **src** contains all important functions (config, visualization, models, pipeline...).
+
+The folder **remote_training** contains all functions that we used to launch the training on the cloud (Kaggle).
+
+The folder **output** contains the results of the pipelines (training and testing).
+
+The folder **analysis/notebooks** contains notebooks that you can use to check results. If you ran the pipeline on your computer with models 0 and 100, you can find two notebooks that correspond to them. The other ones correspond to our trained models that you can download directly from our Google Drive.
+
+Hope you enjoy !
