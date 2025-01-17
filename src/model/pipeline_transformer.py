@@ -10,6 +10,7 @@ import torch
 import typing
 
 from torch.utils.data import DataLoader
+from typing import Any
 
 from src.configs import constants, ml_config, names
 
@@ -35,6 +36,14 @@ class TransformerPipeline(Pipeline):
     def __init__(
         self: _TransformerPipeline, id_experiment: int, iteration: int = 0
     ) -> None:
+        """
+        Initialize class instance.
+
+        Args:
+            self (_TransformerPipeline): Class instance.
+            id_experiment (int): ID of the experiment.
+            iteration (int, optional): Iteration of the experiment. Defaults to 0.
+        """
         super().__init__(id_experiment=id_experiment)
         self.id_experiment
         self.iteration = iteration
@@ -64,6 +73,15 @@ class TransformerPipeline(Pipeline):
         df_valid: pd.DataFrame,
         df_test: pd.DataFrame,
     ) -> None:
+        """
+        Run the full pipeline to train the model and save the results.
+
+        Args:
+            self (_TransformerPipeline): Class instance.
+            df_train (pd.DataFrame): Train set.
+            df_valid (pd.DataFrame): Validation set.
+            df_test (pd.DataFrame): Test set.
+        """
         if self.iteration == 0:
             df = pd.concat([df_train, df_valid, df_test])
             self.get_vocabs(df=df)
@@ -108,6 +126,12 @@ class TransformerPipeline(Pipeline):
     def get_model(
         self: _TransformerPipeline,
     ) -> None:
+        """
+        Get the model associated to the ID of the experiment.
+
+        Args:
+            self (_TransformerPipeline): Class instance.
+        """
         if self.params[names.MODEL_TYPE] == names.TRANSFORMER:
             self.model = Transformer(params=self.params)
         elif self.params[names.MODEL_TYPE] == names.DIFF_TRANSFORMER:
@@ -116,6 +140,13 @@ class TransformerPipeline(Pipeline):
         print(f"Model {self.params[names.MODEL_TYPE]} loaded successfully")
 
     def get_vocabs(self: _TransformerPipeline, df: pd.DataFrame) -> None:
+        """
+        Define the vocabularies for both languages.
+
+        Args:
+            self (_TransformerPipeline): Class instance.
+            df (pd.DataFrame): Full dataset (train, valid and test).
+        """
         src_vocab, tgt_vocab = create_vocabs(df=df, params=self.params)
         self.src_vocab = src_vocab
         self.tgt_vocab = tgt_vocab
@@ -127,7 +158,18 @@ class TransformerPipeline(Pipeline):
 
     def preprocess_data(
         self: _TransformerPipeline, df_train: pd.DataFrame, df_valid: pd.DataFrame
-    ) -> tuple[DataLoader, DataLoader, DataLoader]:
+    ) -> tuple[DataLoader, DataLoader]:
+        """
+        Preprocess raw data before training.
+
+        Args:
+            self (_TransformerPipeline): Class instance.
+            df_train (pd.DataFrame): Train set.
+            df_valid (pd.DataFrame): Validation set.
+
+        Returns:
+            tuple[DataLoader, DataLoader]: (Train dataloader, validation dataloader).
+        """
         (
             src_tokens_train,
             tgt_tokens_train,
@@ -157,8 +199,13 @@ class TransformerPipeline(Pipeline):
         print("Dataloaders loaded successfully")
         return train_dataloader, valid_dataloader
 
-    def save(self):
-        """save model"""
+    def save(self: _TransformerPipeline) -> None:
+        """
+        Save the instance.
+
+        Args:
+            self (_TransformerPipeline): Class instance.
+        """
         path = os.path.join(
             constants.OUTPUT_FOLDER, self.folder_name, "training", "pipeline.pkl"
         )
@@ -175,6 +222,13 @@ class TransformerPipeline(Pipeline):
         print("Model saved successfully")
 
     def save_losses(self, train_loss: list[float], valid_loss: list[float]) -> None:
+        """
+        Save train and validation losses.
+
+        Args:
+            train_loss (list[float]): Train losses.
+            valid_loss (list[float]): Validation losses.
+        """
         train_loss = move_to_cpu(train_loss)
         valid_loss = move_to_cpu(valid_loss)
         np.save(
@@ -192,6 +246,13 @@ class TransformerPipeline(Pipeline):
         print("Losses saved successfully")
 
     def save_translations(self: _TransformerPipeline, translations: list[str]) -> None:
+        """
+        Save translations of the test set.
+
+        Args:
+            self (_TransformerPipeline): Class instance.
+            translations (list[str]): Translations.
+        """
         translations = move_to_cpu(translations)
         np.save(
             os.path.join(
@@ -204,7 +265,13 @@ class TransformerPipeline(Pipeline):
         )
         print("Translations saved successfully")
 
-    def load(self: _TransformerPipeline) -> _TransformerPipeline:
+    def load(self: _TransformerPipeline) -> None:
+        """
+        Load a pre-trained model.
+
+        Args:
+            self (_TransformerPipeline): Class instance.
+        """
         if self.params[names.MODEL_TYPE] == names.TRANSFORMER:
             file_id = "1dhsO2XsoBOSzO36_3VrUMdSxFQgNGIlQ"
         elif self.params[names.MODEL_TYPE] == names.DIFF_TRANSFORMER:
@@ -245,7 +312,16 @@ class TransformerPipeline(Pipeline):
         )
 
 
-def move_to_cpu(obj):
+def move_to_cpu(obj: Any) -> Any:
+    """
+    Move an object to CPU.
+
+    Args:
+        obj (Any): Object.
+
+    Returns:
+        Any: Object moved to CPU.
+    """
     if isinstance(obj, torch.nn.Module):
         return obj.to("cpu")
     elif isinstance(obj, torch.Tensor):
@@ -256,37 +332,3 @@ def move_to_cpu(obj):
         return [move_to_cpu(val) for val in obj]
     else:
         return obj
-
-
-if __name__ == "__main__":
-    # df_train = load_data_from_local(type="samples")
-    # df_valid = load_data_from_local(type="samples")
-    # df_test = load_data_from_local(type="test")
-    # df = pd.concat([df_train, df_valid, df_test])
-    # print(df.shape)
-    id_experiment = 7
-    iteration = 1
-    obj = TransformerPipeline(id_experiment=id_experiment, iteration=iteration)
-    obj.load()
-    # obj.get_vocabs(df=pd.concat([df_train, df_valid, df_test]))
-    # train_dataloader, valid_dataloader = obj.preprocess_data(
-    #     df_train=df_train, df_valid=df_valid
-    # )
-    # obj.get_model()
-    # self = obj.model
-    # optimizer = torch.optim.Adam(
-    #     self.parameters(),
-    #     lr=self.params[names.LEARNING_RATE],
-    #     betas=self.params[names.BETAS],
-    #     eps=self.params[names.EPSILON],
-    # )
-    # criterion = torch.nn.CrossEntropyLoss(ignore_index=0)
-    # for src, tgt_input, tgt_output in train_dataloader:
-    #     break
-    # logits = self(src, tgt_input)
-    # B, T, _ = logits.shape
-    # loss = criterion(
-    #     logits.view(B * T, self.params[names.TGT_VOCAB_SIZE]),
-    #     tgt_output.view(B * T),
-    # )
-    # obj.full_pipeline(df_train=df_train, df_valid=df_valid, df_test=df_test)

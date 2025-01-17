@@ -2,6 +2,7 @@
 *.parquet
 *.npy
 *.pkl
+*.png
 *__nb*
 
 __tmp*

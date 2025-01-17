@@ -1,4 +1,4 @@
-"""Functions for preprocessing"""
+"""Functions for preprocessing."""
 
 from datasets import load_dataset
 import pandas as pd
@@ -6,12 +6,21 @@ import regex as re
 import time
 import unicodedata
 
-from typing import Any
+from typing import Any, Dict, List, Tuple
 
 from src.configs import constants, names
 
 
 def load_data_from_hf(type: str = "samples") -> pd.DataFrame:
+    """
+    Load data from Hugging Face datasets.
+
+    Args:
+        type (str): Type of data to load. Can be "samples", "train", "valid", or "test".
+
+    Returns:
+        pd.DataFrame: DataFrame containing the loaded data.
+    """
     start_time = time.time()
     if type == "samples":
         filename = constants.HF_SAMPLES_FILENAME
@@ -37,6 +46,15 @@ def load_data_from_hf(type: str = "samples") -> pd.DataFrame:
 
 
 def load_data_from_local(type: str = "samples") -> pd.DataFrame:
+    """
+    Load data from local CSV files.
+
+    Args:
+        type (str): Type of data to load. Can be "samples", "train", "valid", or "test".
+
+    Returns:
+        pd.DataFrame: DataFrame containing the loaded data.
+    """
     start_time = time.time()
     if type == "samples":
         df = pd.read_csv(constants.DATA_SAMPLES_FILENAME, index_col=False)
@@ -53,6 +71,16 @@ def load_data_from_local(type: str = "samples") -> pd.DataFrame:
 
 
 def load_data(local: bool = True, type: str = "samples") -> pd.DataFrame:
+    """
+    Load data from either local CSV files or Hugging Face datasets.
+
+    Args:
+        local (bool): Whether to load data from local CSV files.
+        type (str): Type of data to load. Can be "samples", "train", "valid", or "test".
+
+    Returns:
+        pd.DataFrame: DataFrame containing the loaded data.
+    """
     if local:
         print("Loading data from local")
         return load_data_from_local(type=type)
@@ -62,6 +90,15 @@ def load_data(local: bool = True, type: str = "samples") -> pd.DataFrame:
 
 
 def clean_text(text: str | None) -> str:
+    """
+    Clean text by removing special characters, URLs, mentions, and converting to lowercase.
+
+    Args:
+        text (str | None): Input text.
+
+    Returns:
+        str: Cleaned text.
+    """
     if text is None:
         return constants.PAD_TOKEN
     normalized_text = unicodedata.normalize("NFD", text)
@@ -77,20 +114,33 @@ def clean_text(text: str | None) -> str:
     return text
 
 
-def from_text_to_tokens(
-    sentence: str, params: dict[str, Any] | None = None
-) -> list[str]:
+def from_text_to_tokens(sentence: str) -> List[str]:
+    """
+    Convert text to tokens based on the specified tokenization method.
+
+    Args:
+        sentence (str): Input text.
+
+    Returns:
+        List[str]: List of tokens.
+    """
     if isinstance(sentence, str):
-        if params[names.TOKENIZATION] == names.BASIC:
-            tokens = sentence.split()
-        elif params[names.TOKENIZATION] == names.ADVANCED:
-            tokens = sentence.split()
+        tokens = sentence.split()
     else:
-        tokens = [" "]
+        tokens = [constants.PAD_TOKEN]
     return tokens
 
 
-def from_tokens_to_text(tokens: list[str], params: dict[str, Any] | None = None) -> str:
+def from_tokens_to_text(tokens: List[str]) -> str:
+    """
+    Convert tokens to text by removing special tokens.
+
+    Args:
+        tokens (List[str]): List of tokens.
+
+    Returns:
+        str: Text without special tokens.
+    """
     sentence = " ".join(
         token
         for token in tokens
@@ -105,8 +155,18 @@ def from_tokens_to_text(tokens: list[str], params: dict[str, Any] | None = None)
 
 
 def create_vocabs(
-    df: pd.DataFrame, params: dict[str, Any] | None = None
-) -> tuple[dict[str, int], dict[str, int]]:
+    df: pd.DataFrame, params: Dict[str, Any] | None = None
+) -> Tuple[Dict[str, int], Dict[str, int]]:
+    """
+    Create source and target vocabularies by tokenizing the text and counting the occurrences of each token.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the source and target sentences.
+        params (Dict[str, Any] | None): Parameters for tokenization.
+
+    Returns:
+        Tuple[Dict[str, int], Dict[str, int]]: Source vocabulary and target vocabulary.
+    """
     src_vocab = constants.DEFAULT_VOCAB.copy()  # Initialize source vocabulary
     tgt_vocab = constants.DEFAULT_VOCAB.copy()  # Initialize target vocabulary
     for src_sent, tgt_sent in zip(
@@ -114,8 +174,8 @@ def create_vocabs(
     ):
         src_sent_clean = clean_text(text=src_sent)
         tgt_sent_clean = clean_text(text=tgt_sent)
-        src_tokens = from_text_to_tokens(sentence=src_sent_clean, params=params)
-        tgt_tokens = from_text_to_tokens(sentence=tgt_sent_clean, params=params)
+        src_tokens = from_text_to_tokens(sentence=src_sent_clean)
+        tgt_tokens = from_text_to_tokens(sentence=tgt_sent_clean)
         n = len(src_tokens)
         m = len(tgt_tokens)
         for i in range(max(n, m)):
@@ -134,11 +194,19 @@ def create_vocabs(
     return src_vocab, tgt_vocab
 
 
-def tokenize_sentence(
-    sentence: str, vocab: dict[str, int], params: dict[str, Any] | None = None
-) -> list[int]:
+def tokenize_sentence(sentence: str, vocab: Dict[str, int]) -> List[int]:
+    """
+    Tokenize a sentence by converting each token to its corresponding token ID.
+
+    Args:
+        sentence (str): Input sentence.
+        vocab (Dict[str, int]): Vocabulary containing token-to-ID mappings.
+
+    Returns:
+        List[int]: List of token IDs.
+    """
     sentence_clean = clean_text(text=sentence)
-    tokens = from_text_to_tokens(sentence=sentence_clean, params=params)
+    tokens = from_text_to_tokens(sentence=sentence_clean)
     token_ids = []
     for token in tokens:
         if token not in vocab:
@@ -150,175 +218,29 @@ def tokenize_sentence(
 
 def tokenize_dataframe(
     df: pd.DataFrame,
-    src_vocab: dict[str, int],
-    tgt_vocab: dict[str, int],
-    params: dict[str, Any] | None = None,
-) -> tuple[list[int], list[int]]:
+    src_vocab: Dict[str, int],
+    tgt_vocab: Dict[str, int],
+    params: Dict[str, Any] | None = None,
+) -> Tuple[List[List[int]], List[List[int]]]:
+    """
+    Tokenize a DataFrame by converting each sentence to a list of token IDs.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the source and target sentences.
+        src_vocab (Dict[str, int]): Source vocabulary containing token-to-ID mappings.
+        tgt_vocab (Dict[str, int]): Target vocabulary containing token-to-ID mappings.
+        params (Dict[str, Any] | None): Parameters for tokenization.
+
+    Returns:
+        Tuple[List[List[int]], List[List[int]]]: List of source token IDs and list of target token IDs.
+    """
     src_all_token_ids = []
     tgt_all_token_ids = []
     for src_sent, tgt_sent in zip(
         df[params[names.SRC_LANGUAGE]], df[params[names.TGT_LANGUAGE]]
     ):
-        src_token_ids = tokenize_sentence(
-            sentence=src_sent, vocab=src_vocab, params=params
-        )
+        src_token_ids = tokenize_sentence(sentence=src_sent, vocab=src_vocab)
         src_all_token_ids.append(src_token_ids)
-        tgt_token_ids = tokenize_sentence(
-            sentence=tgt_sent, vocab=tgt_vocab, params=params
-        )
+        tgt_token_ids = tokenize_sentence(sentence=tgt_sent, vocab=tgt_vocab)
         tgt_all_token_ids.append(tgt_token_ids)
     return src_all_token_ids, tgt_all_token_ids
-
-
-# def tokenize_sentence_src(
-#     sentence: str, vocab: dict[str, int], params: dict[str, Any] | None = None
-# ) -> list[int]:
-#     sentence = clean_text(text=sentence)
-#     tokens = from_text_to_tokens(sentence=sentence, params=params)
-#     if len(tokens) >= params[names.MAX_SEQUENCE_LENGTH]:
-#         tokens = tokens[: params[names.MAX_SEQUENCE_LENGTH]]
-#     else:
-#         tokens += [constants.PAD_TOKEN] * (
-#             params[names.MAX_SEQUENCE_LENGTH] - len(tokens)
-#         )
-#     token_ids = []
-#     for token in tokens:
-#         if token not in vocab:
-#             vocab[token] = len(vocab)
-#         token_ids.append(vocab[token])
-#     return token_ids
-
-
-# def tokenize_sentence_inference(
-#     sentence: str, vocab: dict[str, int], params: dict[str, Any] | None = None
-# ) -> list[int]:
-#     sentence = clean_text(text=sentence)
-#     tokens = from_text_to_tokens(sentence=sentence, params=params)
-#     if len(tokens) >= params[names.MAX_SEQUENCE_LENGTH]:
-#         tokens = tokens[: params[names.MAX_SEQUENCE_LENGTH]]
-#     else:
-#         tokens += [constants.PAD_TOKEN] * (
-#             params[names.MAX_SEQUENCE_LENGTH] - len(tokens)
-#         )
-#     token_ids = []
-#     for token in tokens:
-#         if token not in vocab:
-#             token_ids.append(vocab[constants.PAD_TOKEN])
-#         else:
-#             token_ids.append(vocab[token])
-#     return token_ids
-
-
-# def tokenize_sentence_tgt(
-#     sentence: str, vocab: dict[str, int], params: dict[str, Any] | None = None
-# ) -> list[int]:
-#     sentence = clean_text(text=sentence)
-#     tokens = [constants.BOS_TOKEN] + from_text_to_tokens(
-#         sentence=sentence, params=params
-#     )
-#     if len(tokens) >= params[names.MAX_SEQUENCE_LENGTH] + 1:
-#         tokens = tokens[: params[names.MAX_SEQUENCE_LENGTH] + 1]
-#     else:
-#         tokens += [constants.EOS_TOKEN] + [constants.PAD_TOKEN] * (
-#             params[names.MAX_SEQUENCE_LENGTH] - len(tokens)
-#         )
-#     input_token_ids = []
-#     for i in range(len(tokens)):
-#         token = tokens[i]
-#         if token not in vocab:
-#             vocab[token] = len(vocab)
-#         input_token_ids.append(vocab[token])
-#     return input_token_ids[:-1], input_token_ids[1:]
-
-
-# def tokenize_dataframe(
-#     df: pd.DataFrame,
-#     src_vocab: dict[str, int],
-#     tgt_vocab: dict[str, int],
-#     src_input_tokens: list[list[int]],
-#     tgt_input_tokens: list[list[int]],
-#     tgt_output_tokens: list[int],
-#     params: dict[str, Any] | None = None,
-# ) -> tuple[dict[str, int], dict[str, int], list[list[int]], list[list[int]]]:
-#     for src_sent, tgt_sent in zip(
-#         df[params[names.SRC_LANGUAGE]], df[params[names.TGT_LANGUAGE]]
-#     ):
-#         src_input = tokenize_sentence_src(
-#             sentence=src_sent, vocab=src_vocab, params=params
-#         )
-#         tgt_input, tgt_output = tokenize_sentence_tgt(
-#             sentence=tgt_sent, vocab=tgt_vocab, params=params
-#         )
-#         src_input_tokens.append(src_input)
-#         tgt_input_tokens.append(tgt_input)
-#         tgt_output_tokens.append(tgt_output)
-#     return src_vocab, tgt_vocab, src_input_tokens, tgt_input_tokens, tgt_output_tokens
-
-
-# def tokenize_datasets(
-#     df_train: pd.DataFrame,
-#     df_valid: pd.DataFrame,
-#     df_test: pd.DataFrame,
-#     params: dict[str, Any] | None = None,
-# ) -> None:
-#     src_vocab = constants.DEFAULT_VOCAB.copy()  # Initialize source vocabulary
-#     tgt_vocab = constants.DEFAULT_VOCAB.copy()  # Initialize target vocabulary
-#     (
-#         src_vocab,
-#         tgt_vocab,
-#         src_input_tokens_train,
-#         tgt_input_tokens_train,
-#         tgt_output_tokens_train,
-#     ) = tokenize_dataframe(
-#         df=df_train,
-#         src_vocab=src_vocab,
-#         tgt_vocab=tgt_vocab,
-#         src_input_tokens=[],
-#         tgt_input_tokens=[],
-#         tgt_output_tokens=[],
-#         params=params,
-#     )
-#     (
-#         src_vocab,
-#         tgt_vocab,
-#         src_input_tokens_valid,
-#         tgt_input_tokens_valid,
-#         tgt_output_tokens_valid,
-#     ) = tokenize_dataframe(
-#         df=df_valid,
-#         src_vocab=src_vocab,
-#         tgt_vocab=tgt_vocab,
-#         src_input_tokens=[],
-#         tgt_input_tokens=[],
-#         tgt_output_tokens=[],
-#         params=params,
-#     )
-#     (
-#         src_vocab,
-#         tgt_vocab,
-#         src_input_tokens_test,
-#         tgt_input_tokens_test,
-#         tgt_output_tokens_test,
-#     ) = tokenize_dataframe(
-#         df=df_test,
-#         src_vocab=src_vocab,
-#         tgt_vocab=tgt_vocab,
-#         src_input_tokens=[],
-#         tgt_input_tokens=[],
-#         tgt_output_tokens=[],
-#         params=params,
-#     )
-#     print("Datasets have been tokenized")
-#     return (
-#         src_vocab,
-#         tgt_vocab,
-#         src_input_tokens_train,
-#         tgt_input_tokens_train,
-#         tgt_output_tokens_train,
-#         src_input_tokens_valid,
-#         tgt_input_tokens_valid,
-#         tgt_output_tokens_valid,
-#         src_input_tokens_test,
-#         tgt_input_tokens_test,
-#         tgt_output_tokens_test,
-#     )

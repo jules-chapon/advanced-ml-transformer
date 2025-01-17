@@ -10,6 +10,21 @@ _DiffHead = typing.TypeVar("_DiffHead", bound="DiffHead")
 
 
 class DiffHead(nn.Module):
+    """
+    A single differential head of differential multi-head attention.
+
+    Args:
+        head_input_dimension (int): The dimension of the input to the head.
+        head_size (int): The size of the head.
+        head_output_dimension (int): The dimension of the output of the head.
+        context_length (int): The length of the context.
+        lambda_init (float): The initial value for the lambda parameter.
+        mask (bool, optional): Whether to apply masking. Defaults to True.
+
+    Methods:
+        forward(q, k, v, pad_mask): Computes the attention scores and context vectors.
+    """
+
     def __init__(
         self: _DiffHead,
         head_input_dimension: int,
@@ -19,6 +34,18 @@ class DiffHead(nn.Module):
         lambda_init: float,
         mask: bool = True,
     ) -> None:
+        """
+        Initialize class instance.
+
+        Args:
+            self (_Head): Class instance.
+            head_input_dimension (int): Dimension of the input.
+            head_size (int): Size of the attention head.
+            head_output_dimension (int): Dimension of the output.
+            context_length (int): Length of the context.
+            lambda_init (float): Initial value for lambda parameter.
+            mask (bool, optional): Whether to use a mask or not. Defaults to True.
+        """
         super().__init__()
         self.query = nn.Linear(head_input_dimension, 2 * head_size, bias=False)
         self.key = nn.Linear(head_input_dimension, 2 * head_size, bias=False)
@@ -41,6 +68,19 @@ class DiffHead(nn.Module):
         v: torch.Tensor,
         pad_mask: torch.Tensor,
     ) -> torch.Tensor:
+        """
+        Forward method to get the output of the model.
+
+        Args:
+            self (_DiffHead): Class instance.
+            q (torch.Tensor): Query tensor.
+            k (torch.Tensor): Key tensor.
+            v (torch.Tensor): Value tensor.
+            pad_mask (torch.Tensor): Padding mask.
+
+        Returns:
+            torch.Tensor: Output of the model.
+        """
         B, T_q, C = q.shape
         _, T_k, _ = k.shape
         # B = batch_size
@@ -99,6 +139,21 @@ _MultiDiffHeadAttention = typing.TypeVar(
 
 
 class MultiDiffHeadAttention(nn.Module):
+    """
+    Differential multi-head attention.
+
+    Args:
+        num_heads (int): Number of heads.
+        embedding_dimension (int): Dimension of the embedding (=input).        head_size (int): The size of the head.
+        head_output_dimension (int): The dimension of the output of the head.
+        context_length (int): The length of the context.
+        lambda_init (float): The initial value for the lambda parameter.
+        mask (bool, optional): Whether to apply masking. Defaults to True.
+
+    Methods:
+        forward(q, k, v, pad_mask): Computes the attention scores and context vectors.
+    """
+
     def __init__(
         self: _MultiDiffHeadAttention,
         num_heads: int,
@@ -109,6 +164,19 @@ class MultiDiffHeadAttention(nn.Module):
         lambda_init: float,
         mask: bool = True,
     ) -> None:
+        """
+        Initialize class instance.
+
+        Args:
+            self (_MultiDiffHeadAttention): Class instance.
+            num_heads (int): Number of heads.
+            embedding_dimension (int): Dimension of the embedding (=input).
+            head_size (int): Size of the attention head.
+            head_output_dimension (int): Dimension of the output.
+            context_length (int): Length of the context.
+            lambda_init (float): Initial value for the lambda parameter.
+            mask (bool, optional): Whether to use a mask or not. Defaults to True.
+        """
         super().__init__()
         self.heads = nn.ModuleList(
             [
@@ -133,6 +201,19 @@ class MultiDiffHeadAttention(nn.Module):
         v: torch.Tensor,
         pad_mask: torch.Tensor,
     ):
+        """
+        Forward method to get the output of the model.
+
+        Args:
+            self (_MultiDiffHead): Class instance.
+            q (torch.Tensor): Query tensor.
+            k (torch.Tensor): Key tensor.
+            v (torch.Tensor): Value tensor.
+            pad_mask (torch.Tensor): Padding mask.
+
+        Returns:
+            torch.Tensor: Output of the model.
+        """
         # q, k, v : (B, T, C)
         # B = batch_size
         # T = context_length
@@ -152,13 +233,42 @@ _RMSNormLayer = typing.TypeVar("_RMSNormLayer", bound="RMSNormLayer")
 
 
 class RMSNormLayer(nn.Module):
+    """
+    Normalization layer.
+
+    Args:
+        dimension (int): The dimension of the input and output tensors.
+        eps (float, optional): A small value to avoid division by zero. Defaults to 1e-6.
+
+    Methods:
+        forward(x): Applies layer normalization to the input tensor.
+    """
+
     def __init__(self: _RMSNormLayer, dimension: int, eps: float = 1e-6):
+        """
+        Initialize class instance.
+
+        Args:
+            self (_RMSNormLayer): Class instance.
+            dimension (int): Dimension of the input tensor.
+            eps (float, optional): To avoid dividing by 0. Defaults to 1e-6.
+        """
         super().__init__()
         self.dimension = dimension
         self.eps = eps
         self.scale = nn.Parameter(torch.ones(dimension))
 
     def forward(self: _RMSNormLayer, x: torch.Tensor):
+        """
+        Forward method to get the output of the layer.
+
+        Args:
+            self (_RMSNormLayer): Class instance.
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            torch.Tensor: Normalized tensor.
+        """
         rms = torch.sqrt(torch.mean(x**2, dim=-1, keepdim=True) + self.eps)
         x_norm = x / rms
         return self.scale * x_norm
@@ -168,13 +278,40 @@ _SwiGLU = typing.TypeVar("_SwiGLU", bound="SwiGLU")
 
 
 class SwiGLU(nn.Module):
+    """
+    SwiGLU layer.
+
+    Args:
+        dimension (int): The dimension of the input tensor.
+
+    Methods:
+        forward(x): Applies a SwiGLU layer to the input tensor.
+    """
+
     def __init__(self: _SwiGLU, dimension: int):
+        """
+        Initialize class instance.
+
+        Args:
+            self (_SwiGLU): Class instance.
+            dimension (int): Dimension of the input tensor.
+        """
         super(SwiGLU, self).__init__()
         self.W_G = nn.Linear(dimension, 3 * dimension)
         self.W1 = nn.Linear(dimension, 3 * dimension)
         self.W2 = nn.Linear(3 * dimension, dimension)
 
-    def forward(self: _SwiGLU, x: torch.Tensor):
+    def forward(self: _SwiGLU, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward method to compute the output of the layer.
+
+        Args:
+            self (_SwiGLU): Class instance.
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            torch.Tensor: Output tensor.
+        """
         # x : (B, T, I)
         # B = batch_size
         # T = context_length
@@ -201,11 +338,30 @@ _PositionalEncoding = typing.TypeVar("_PositionalEncoding", bound="PositionalEnc
 
 
 class PositionalEncoding(torch.nn.Module):
+    """
+    Positional encoding layer.
+
+    Args:
+        embedding_dimension (int): The dimension of the input and output tensors.
+        context_length (int): The length of the context.
+
+    Methods:
+        forward(x): Applies positional encoding to the input tensor.
+    """
+
     def __init__(
         self: _PositionalEncoding,
         embedding_dimension: int,
         context_length: int,
-    ) -> _PositionalEncoding:
+    ) -> None:
+        """
+        Initialize class instance.
+
+        Args:
+            self (_PositionalEncoding): Class instance.
+            embedding_dimension (int): Dimension of the embedding.
+            context_length (int): Length of the context.
+        """
         super().__init__()
         pe = torch.zeros(context_length, embedding_dimension)
         position = torch.arange(
@@ -219,5 +375,15 @@ class PositionalEncoding(torch.nn.Module):
         pe[:, 1::2] = torch.cos(position * div_term)
         self.register_buffer("pe", pe.unsqueeze(0))
 
-    def forward(self: _PositionalEncoding, x: torch.Tensor):
+    def forward(self: _PositionalEncoding, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward method to compute the output of the embedding.
+
+        Args:
+            self (_PositionalEncoding): Class instance.
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            torch.Tensor: Embedded tensor.
+        """
         return self.pe[:, : x.size(1)]

@@ -10,6 +10,20 @@ _Head = typing.TypeVar("_Head", bound="Head")
 
 
 class Head(nn.Module):
+    """
+    A single head of multi-head attention.
+
+    Args:
+        head_input_dimension (int): The dimension of the input to the head.
+        head_size (int): The size of the head.
+        head_output_dimension (int): The dimension of the output of the head.
+        context_length (int): The length of the context.
+        mask (bool, optional): Whether to apply masking. Defaults to True.
+
+    Methods:
+        forward(q, k, v, pad_mask): Computes the attention scores and context vectors.
+    """
+
     def __init__(
         self: _Head,
         head_input_dimension: int,
@@ -18,6 +32,17 @@ class Head(nn.Module):
         context_length: int,
         mask: bool = True,
     ) -> None:
+        """
+        Initialize class instance.
+
+        Args:
+            self (_Head): Class instance.
+            head_input_dimension (int): Dimension of the input.
+            head_size (int): Size of the attention head.
+            head_output_dimension (int): Dimension of the output.
+            context_length (int): Length of the context.
+            mask (bool, optional): Whether to use a mask or not. Defaults to True.
+        """
         super().__init__()
         self.key = nn.Linear(head_input_dimension, head_size, bias=False)
         self.query = nn.Linear(head_input_dimension, head_size, bias=False)
@@ -36,6 +61,19 @@ class Head(nn.Module):
         v: torch.Tensor,
         pad_mask: torch.Tensor,
     ) -> torch.Tensor:
+        """
+        Forward method to get the output of the model.
+
+        Args:
+            self (_Head): Class instance.
+            q (torch.Tensor): Query tensor.
+            k (torch.Tensor): Key tensor.
+            v (torch.Tensor): Value tensor.
+            pad_mask (torch.Tensor): Padding mask.
+
+        Returns:
+            torch.Tensor: Output of the model.
+        """
         B, T_q, C = q.shape
         _, T_k, _ = k.shape
         # B = batch_size
@@ -72,6 +110,21 @@ _MultiHeadAttention = typing.TypeVar("_MultiHeadAttention", bound="MultiHeadAtte
 
 
 class MultiHeadAttention(nn.Module):
+    """
+    Multi-head attention.
+
+    Args:
+        num_heads (int): Number of heads.
+        embedding_dimension (int): Dimension of the embedding (=input).
+        head_size (int): The size of the head.
+        head_output_dimension (int): The dimension of the output of the head.
+        context_length (int): The length of the context.
+        mask (bool, optional): Whether to apply masking. Defaults to True.
+
+    Methods:
+        forward(q, k, v, pad_mask): Computes the attention scores and context vectors.
+    """
+
     def __init__(
         self: _MultiHeadAttention,
         num_heads: int,
@@ -81,6 +134,18 @@ class MultiHeadAttention(nn.Module):
         context_length: int,
         mask: bool = True,
     ) -> None:
+        """
+        Initialize class instance.
+
+        Args:
+            self (_MultiHeadAttention): Class instance.
+            num_heads (int): Number of heads.
+            embedding_dimension (int): Dimension of the embedding (=input).
+            head_size (int): Size of the attention head.
+            head_output_dimension (int): Dimension of the output.
+            context_length (int): Length of the context.
+            mask (bool, optional): Whether to use a mask or not. Defaults to True.
+        """
         super().__init__()
         self.heads = nn.ModuleList(
             [
@@ -103,6 +168,19 @@ class MultiHeadAttention(nn.Module):
         v: torch.Tensor,
         pad_mask: torch.Tensor,
     ):
+        """
+        Forward method to get the output of the model.
+
+        Args:
+            self (_MultiHead): Class instance.
+            q (torch.Tensor): Query tensor.
+            k (torch.Tensor): Key tensor.
+            v (torch.Tensor): Value tensor.
+            pad_mask (torch.Tensor): Padding mask.
+
+        Returns:
+            torch.Tensor: Output of the model.
+        """
         # q, k, v : (B, T, C)
         # B = batch_size
         # T = context_length
@@ -118,13 +196,42 @@ _NormLayer = typing.TypeVar("_NormLayer", bound="NormLayer")
 
 
 class NormLayer(nn.Module):
+    """
+    Normalization layer.
+
+    Args:
+        dimension (int): The dimension of the input and output tensors.
+        eps (float, optional): A small value to avoid division by zero. Defaults to 1e-6.
+
+    Methods:
+        forward(x): Applies layer normalization to the input tensor.
+    """
+
     def __init__(self: _NormLayer, dimension: int, eps: float = 1e-6) -> None:
+        """
+        Initialize class instance.
+
+        Args:
+            self (_NormLayer): Class instance.
+            dimension (int): Dimension of the input tensor.
+            eps (float, optional): To avoid dividing by 0. Defaults to 1e-6.
+        """
         super().__init__()
         self.eps = eps  # To avoid dividing by 0
         self.gamma = nn.Parameter(torch.ones(dimension))  # Parameter to train
         self.beta = nn.Parameter(torch.zeros(dimension))  # Parameter to train
 
     def forward(self: _NormLayer, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward method to get the output of the layer.
+
+        Args:
+            self (_NormLayer): Class instance.
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            torch.Tensor: Normalized tensor.
+        """
         # x : (B, T, C)
         # B = batch_size
         # T = length
@@ -139,12 +246,33 @@ _FeedForward = typing.TypeVar("_FeedForward", bound="FeedForward")
 
 
 class FeedForward(nn.Module):
+    """
+    Feed-forward layer.
+
+    Args:
+        input_dimension (int): The dimension of the input tensor.
+        hidden_dimension (int): The dimension of the hidden layer.
+        output_dimension (int): The dimension of the output tensor.
+
+    Methods:
+        forward(x): Applies a feed-forward network to the input tensor.
+    """
+
     def __init__(
         self: _FeedForward,
         input_dimension: int,
         hidden_dimension: int,
         output_dimension: int,
     ):
+        """
+        Initialize the feed-forward network.
+
+        Args:
+            self (_FeedForward): Class instance.
+            input_dimension (int): Dimension of the input tensor.
+            hidden_dimension (int): Hidden dimension of the network.
+            output_dimension (int): Dimension of the output tensor.
+        """
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(input_dimension, hidden_dimension),
@@ -153,6 +281,16 @@ class FeedForward(nn.Module):
         )
 
     def forward(self: _FeedForward, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward method to compute the output of the network.
+
+        Args:
+            self (_FeedForward): Class instance.
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            torch.Tensor: Output tensor.
+        """
         # x : (B, T, I)
         # B = batch_size
         # T = context_length
@@ -165,11 +303,30 @@ _PositionalEncoding = typing.TypeVar("_PositionalEncoding", bound="PositionalEnc
 
 
 class PositionalEncoding(torch.nn.Module):
+    """
+    Positional encoding layer.
+
+    Args:
+        embedding_dimension (int): The dimension of the input and output tensors.
+        context_length (int): The length of the context.
+
+    Methods:
+        forward(x): Applies positional encoding to the input tensor.
+    """
+
     def __init__(
         self: _PositionalEncoding,
         embedding_dimension: int,
         context_length: int,
-    ) -> _PositionalEncoding:
+    ) -> None:
+        """
+        Initialize class instance.
+
+        Args:
+            self (_PositionalEncoding): Class instance.
+            embedding_dimension (int): Dimension of the embedding.
+            context_length (int): Length of the context.
+        """
         super().__init__()
         pe = torch.zeros(context_length, embedding_dimension)
         position = torch.arange(
@@ -183,5 +340,15 @@ class PositionalEncoding(torch.nn.Module):
         pe[:, 1::2] = torch.cos(position * div_term)
         self.register_buffer("pe", pe.unsqueeze(0))
 
-    def forward(self: _PositionalEncoding, x: torch.Tensor):
+    def forward(self: _PositionalEncoding, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward method to compute the output of the embedding.
+
+        Args:
+            self (_PositionalEncoding): Class instance.
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            torch.Tensor: Embedded tensor.
+        """
         return self.pe[:, : x.size(1)]

@@ -6,7 +6,7 @@ import torch
 import torch.nn.functional as F
 import typing
 from torch.utils.data import DataLoader
-from typing import Any
+from typing import Any, Dict, List, Tuple
 
 from src.configs import names, constants
 
@@ -29,6 +29,13 @@ _Encoder = typing.TypeVar(name="_Encoder", bound="Encoder")
 
 
 class Encoder(torch.nn.Module):
+    """
+    Class for the Encoder part of the Transformer.
+
+    Methods:
+        forward(x, pad_mask): Computes the output of the Encoder.
+    """
+
     def __init__(
         self: _Encoder,
         num_heads: int,
@@ -37,7 +44,19 @@ class Encoder(torch.nn.Module):
         context_length: int,
         hidden_dimension: int,
         dropout: float,
-    ) -> _Encoder:
+    ) -> None:
+        """
+        Initialize class instance.
+
+        Args:
+            self (_Encoder): Class instance.
+            num_heads (int): Number of heads.
+            embedding_dimension (int): Dimension of the embedding.
+            head_size (int): Size of each single head.
+            context_length (int): Lenght of the context.
+            hidden_dimension (int): Dimension of the hidden layer.
+            dropout (float): Dropout probability.
+        """
         super().__init__()
         self.self_attention = MultiHeadAttention(
             num_heads=num_heads,
@@ -59,6 +78,17 @@ class Encoder(torch.nn.Module):
     def forward(
         self: _Encoder, x: torch.Tensor, pad_mask: torch.Tensor
     ) -> torch.Tensor:
+        """
+        Forward method to get the output of the encoder.
+
+        Args:
+            self (_Encoder): Class instance.
+            x (torch.Tensor): Input tensor.
+            pad_mask (torch.Tensor): Padding mask.
+
+        Returns:
+            torch.Tensor: Output tensor.
+        """
         out = self.self_attention(q=x, k=x, v=x, pad_mask=pad_mask)
         out = self.norm_layer_1(out + self.dropout(input=out))
         out = self.feed_forward(x=out)
@@ -70,6 +100,13 @@ _Decoder = typing.TypeVar(name="_Decoder", bound="Decoder")
 
 
 class Decoder(torch.nn.Module):
+    """
+    Class for the Encoder part of the Transformer.
+
+    Methods:
+        forward(x, encoder_output, pad_mask): Computes the output of the Decoder.
+    """
+
     def __init__(
         self: _Decoder,
         num_heads: int,
@@ -78,7 +115,19 @@ class Decoder(torch.nn.Module):
         context_length: int,
         hidden_dimension: int,
         dropout: float,
-    ) -> _Decoder:
+    ) -> None:
+        """
+        Initialize class instance.
+
+        Args:
+            self (_Decoder): Class instance.
+            num_heads (int): Number of heads.
+            embedding_dimension (int): Dimension of the embedding.
+            head_size (int): Size of each single head.
+            context_length (int): Lenght of the context.
+            hidden_dimension (int): Dimension of the hidden layer.
+            dropout (float): Dropout probability.
+        """
         super().__init__()
         self.self_attention = MultiHeadAttention(
             num_heads=num_heads,
@@ -112,6 +161,18 @@ class Decoder(torch.nn.Module):
         encoder_output: torch.Tensor,
         pad_mask: torch.Tensor,
     ) -> torch.Tensor:
+        """
+        Forward method to get the output of the decoder.
+
+        Args:
+            self (_Decoder): Class instance.
+            x (torch.Tensor): Input tensor.
+            encoder_output (torch.Tensor): Encoder output tensor.
+            pad_mask (torch.Tensor): Padding mask.
+
+        Returns:
+            torch.Tensor: Output tensor.
+        """
         out = self.self_attention(q=x, k=x, v=x, pad_mask=pad_mask)
         out = self.norm_layer_1(out + self.dropout(input=out))
         out = self.cross_attention(
@@ -127,7 +188,25 @@ _Transformer = typing.TypeVar(name="_Transformer", bound="Transformer")
 
 
 class Transformer(torch.nn.Module):
-    def __init__(self: _Transformer, params: dict[str, Any]) -> _Transformer:
+    """
+    Class for Transformer model.
+
+    Methods:
+        forward(src_input, tgt_input): get predictions of the model.
+        get_padding_mask(input): define the âdding mask of an input.
+        train_model(train_dataloader, valid_dataloader): train the model.
+        translate(src_vocab, tgt_vocab_reversed, src_text): translate a sentence.
+        evaluate(df_test, src_vocab, tgt_vocab_reversed): evaluate the model on the test set.
+    """
+
+    def __init__(self: _Transformer, params: Dict[str, Any]) -> None:
+        """
+        Initialize class instance.
+
+        Args:
+            self (_Transformer): Class instance.
+            params (Dict[str, Any]): Parameters of the model.
+        """
         super().__init__()
         self.params = params
         if (self.params[names.DEVICE] == "cuda") and (torch.cuda.is_available()):
@@ -180,7 +259,20 @@ class Transformer(torch.nn.Module):
         )
         self.dropout = torch.nn.Dropout(self.params[names.DROPOUT])
 
-    def forward(self: _Transformer, src_input: torch.Tensor, tgt_input: torch.Tensor):
+    def forward(
+        self: _Transformer, src_input: torch.Tensor, tgt_input: torch.Tensor
+    ) -> torch.Tensor:
+        """
+        Forward method to get the output of the Transformer.
+
+        Args:
+            self (_Transformer): Class instance.
+            src_input (torch.Tensor): Source input tensor.
+            tgt_input (torch.Tensor): Target input tensor.
+
+        Returns:
+            torch.Tensor: Logits.
+        """
         # Encoder
         src_pad_mask = self.get_padding_mask(src_input)
         src_embedded = self.encoder_embedding(src_input)
@@ -203,6 +295,16 @@ class Transformer(torch.nn.Module):
         return logits
 
     def get_padding_mask(self: _Transformer, input: torch.Tensor) -> torch.Tensor:
+        """
+        Define the padding mask.
+
+        Args:
+            self (_Transformer): Class instance.
+            input (torch.Tensor): Input tensor.
+
+        Returns:
+            torch.Tensor: Padding mask.
+        """
         pad_mask = input == constants.PAD_TOKEN_ID
         return pad_mask
 
@@ -210,7 +312,18 @@ class Transformer(torch.nn.Module):
         self: _Transformer,
         train_dataloader: DataLoader,
         valid_dataloader: DataLoader,
-    ) -> tuple[list[int], list[int]]:
+    ) -> Tuple[List[int], List[int]]:
+        """
+        Train the model.
+
+        Args:
+            self (_Transformer): Class instance.
+            train_dataloader (DataLoader): Dataloader for training data.
+            valid_dataloader (DataLoader): Dataloader for validation data.
+
+        Returns:
+            Tuple[List[int], List[int]]: Train loss history, validation loss history.
+        """
         optimizer = torch.optim.Adam(
             self.parameters(),
             lr=self.params[names.LEARNING_RATE],
@@ -274,15 +387,25 @@ class Transformer(torch.nn.Module):
 
     def translate(
         self: _Transformer,
-        src_vocab: dict[str, int],
-        tgt_vocab_reversed: dict[str, int],
+        src_vocab: Dict[str, int],
+        tgt_vocab_reversed: Dict[str, int],
         src_text: str,
     ) -> str:
+        """
+        Translate a sentence.
+
+        Args:
+            self (_Transformer): Class instance.
+            src_vocab (Dict[str, int]): Vocabulary of the source language.
+            tgt_vocab_reversed (Dict[str, int]): Reversed vocabulary of the target language.
+            src_text (str): Sentence to be translated.
+
+        Returns:
+            str: Translation.
+        """
         self.eval()
         with torch.no_grad():
-            src_tokens = tokenize_sentence(
-                sentence=src_text, vocab=src_vocab, params=self.params
-            )
+            src_tokens = tokenize_sentence(sentence=src_text, vocab=src_vocab)
             if len(src_tokens) < self.params[names.MAX_LENGTH_SRC]:
                 src_tokens += [constants.PAD_TOKEN_ID] * (
                     self.params[names.MAX_LENGTH_SRC] - len(src_tokens)
@@ -313,14 +436,26 @@ class Transformer(torch.nn.Module):
         translation = []
         for token in generated_tokens:
             translation.append(tgt_vocab_reversed[token])
-        return from_tokens_to_text(tokens=translation, params=self.params)
+        return from_tokens_to_text(tokens=translation)
 
     def evaluate(
         self: _Transformer,
         df_test: pd.DataFrame,
-        src_vocab: dict[str, int],
-        tgt_vocab_reversed: dict[str, int],
-    ) -> tuple[dict[str, float], list[str]]:
+        src_vocab: Dict[str, int],
+        tgt_vocab_reversed: Dict[str, int],
+    ) -> Tuple[Dict[str, float], List[str]]:
+        """
+        Evaluate the model on the test set.
+
+        Args:
+            self (_Transformer): Class instance.
+            df_test (pd.DataFrame): Test set.
+            src_vocab (Dict[str, int]): Vocabulary of the source language.
+            tgt_vocab_reversed (Dict[str, int]): Reversed vocabulary of the target language.
+
+        Returns:
+            Tuple[Dict[str, float], List[str]]: (Metrics, translations of the model).
+        """
         start_time = time.time()
         list_translations = []
         list_references = []
