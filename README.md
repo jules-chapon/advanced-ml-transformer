@@ -81,6 +81,6 @@ The folder **remote_training** contains all functions that we used to launch the
 
 The folder **output** contains the results of the pipelines (training and testing).
 
-The folder **analysis/notebooks** contains notebooks that you can use to check results. If you ran the pipeline on your computer with models 0 and 100, you can find two notebooks that correspond to them. The other ones correspond to our trained models that you can download directly from our Google Drive.
+The folder **analysis/notebooks** contains notebooks that you can use to check results. If you ran the pipeline on your computer with models 0 and 100, you can find two notebooks that correspond to them. The other ones correspond to our trained models that you can download directly from our Google Drive. In these notebooks, you can find all graphs and metrics that are present in our written report, and you can also use the models to translate sentences (spoiler: it is not working well).
 
 Hope you enjoy !
